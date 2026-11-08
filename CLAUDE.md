@@ -12,7 +12,10 @@ Flaches Layout, wie im Repository `trent2/reveal.js-plugins` (dort ausgeliefert 
 | `reveal-uncover.js` / `.css` | Plugin: Ergebnisse per Klick aufdecken (Klasse `uncover`). |
 | `reveal-probability.js` / `.css` | Plugin: Venn-Diagramme (zwei Mengen), Baumdiagramme, Vierfeldertafeln. |
 | `reveal-touchzoom.js` | Bestehendes Plugin (Tablet-Zoom). Lokale Kopie von Version 0.0.1 mit der zusätzlichen Option `ignore`; **noch nicht veröffentlicht**. Nur minimal ändern, der Code ist deutsch. |
-| `aufgaben.png`, `weitereA.png` | Vorlagen der Aufgaben 3 bis 5 aus dem Schulbuch (nur Quellmaterial). |
+| `demo.html` | Kurze Demo mit minimalem Funktionsumfang (Venn, Baum, Vierfeldertafel, Aufdecken), englisch. Für Neulinge und als Smoke-Test. |
+| `test/index.html`, `test/run.sh` | Automatische Tests (siehe „Prüfen“). |
+
+Die Aufgabenvorlagen `aufgaben.png` und `weitereA.png` (Schulbuch) gehören nicht ins Repository.
 
 Die API jedes Plugins (Attribute, Konfiguration, Methoden) steht im Kommentar am Anfang der `.js`-Datei, die Farb-Variablen im Kopf der `.css`-Datei. Bei API-Änderungen diese Kommentare mitpflegen.
 
@@ -61,7 +64,26 @@ Venn-Modi: `none`, `complement`, `intersection`, `union`, `difference`, `partiti
 
 ## Prüfen
 
-Es gibt keine automatisierten Tests; geprüft wird mit Headless-Chrome, die Präsentation ist die Testdatei.
+Kein Test-Framework, nur Headless-Chrome (Umgebungsvariable `CHROME` überschreibt den Befehl `google-chrome-stable`). reveal.js und KaTeX kommen vom CDN, es wird also Netz gebraucht.
+
+```bash
+test/run.sh     # Exit-Code 0 = alles in Ordnung
+```
+
+`test/run.sh` führt drei Prüfungen aus:
+
+1. **`test/index.html`** (derzeit 82 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
+   - *uncover:* Startzustand, Klick (auch auf Kindelemente und SVG), API `cover`/`uncover`/`toggle` mit Bereich, später eingefügte Elemente, Taste und Beschreibung, `key: false`, Listener nur am Reveal-Element, CSS (Blur).
+   - *Venn:* alle sieben Modi (Füllschichten, hervorgehobene Elemente, clipPath-IDs eindeutig), Werte, Namen, `mini`, Sets (Namen, Elemente, feste Positionen, Vorrang der Attribute, Teilpositionen, unbekanntes Set), automatische Platzierung (liegt im Bereich, Randabstand, keine Überlappung, Abstand zu Beschriftungen, zu viele Elemente), Escaping, unbekannter Modus, `aria-label`.
+   - *Baum:* Struktur, Überstriche nur an Gegenereignissen, Brüche und Dezimalzahlen, Beschriftung neben dem Ast, ungültige Eingaben, Escaping.
+   - *Vierfeldertafel:* Struktur und Zellreihenfolge, Standardwerte, Leerraum, `$…$`-sicheres Trennen, LaTeX unverändert, Text statt Markup, ungültige Eingaben.
+   - *Plugin-API:* unabhängige Instanzen, `render()` idempotent, mit Bereich, nachträglich, nach Attributänderung, CSS-Variablen.
+2. **`demo.html`:** keine Konsolenmeldungen, erwartete Anzahl Diagramme, Lösung verdeckt.
+3. **Präsentation:** keine Konsolenmeldungen (außer `fsfx`), 14 Venn-Diagramme, 1 Baum, 2 Tafeln, alle 45 Lösungen verdeckt, keine KaTeX-Fehler.
+
+**Neue Funktion = neuer Test.** Bei Änderungen an einem Plugin zuerst `test/run.sh`, bei neuen Attributen oder Modi Tests und Kopfkommentar des Plugins ergänzen. Fehlt noch: der Doppeltipp-Zoom von `reveal-touchzoom` (braucht echte Touch-Ereignisse; nur Lade-Smoke-Test).
+
+Die Tests prüfen Struktur und Verhalten, nicht das Aussehen. Für Aussehen gilt:
 
 ```bash
 # Folie N+1 (Hash ist nullbasiert) als Bild; der Hash #/10 ergibt Folie 11
@@ -71,7 +93,10 @@ google-chrome-stable --headless=new --no-sandbox --disable-gpu --hide-scrollbars
 ```
 
 - Aufgedeckter Zustand: Kopie der HTML-Datei mit `<base href="file:///…/">` im `<head>` und einem Skript vor `</body>`, das nach dem Laden `document.querySelectorAll('.uncover.covered').forEach(e => e.click())` ausführt.
-- Konsole prüfen: `--enable-logging=stderr --v=0 --dump-dom`, dann nach `CONSOLE` und `[reveal-probability]` suchen.
-- **Refactoring ohne Git:** Vorher alle Folien (verdeckt und aufgedeckt) rendern, nachher noch einmal, dann pixelweise vergleichen (`PIL.ImageChops.difference(a, b).getbbox()` ist `None` bei Gleichheit). Das belegt „sieht unverändert aus" besser als Hinsehen.
-- **Der Nutzer will Screenshots selbst ansehen.** Bilder nicht selbst betrachten, sondern Pixelvergleich, Konsolenausgabe und DOM-Prüfungen nutzen und dem Nutzer eine Checkliste geben, worauf er achten soll.
-- Testdateien und Bilder in einem Unterordner `.test-tmp/` ablegen, nicht im Projektwurzelverzeichnis. Am Ende dort aufräumen oder dem Nutzer sagen, dass der Ordner gelöscht werden kann.
+- **Refactoring des Aussehens:** Vorher alle Folien (verdeckt und aufgedeckt) rendern, nachher noch einmal, dann pixelweise vergleichen (`PIL.ImageChops.difference(a, b).getbbox()` ist `None` bei Gleichheit).
+- **Der Nutzer will Screenshots selbst ansehen.** Bilder nicht selbst betrachten, sondern Pixelvergleich, Konsolenausgabe, DOM-Prüfungen und `test/run.sh` nutzen und dem Nutzer eine Checkliste geben, worauf er achten soll.
+- Temporäre Bilder und Skripte in `.test-tmp/` ablegen (steht in `.gitignore`). Am Ende aufräumen oder dem Nutzer sagen, dass der Ordner gelöscht werden kann.
+
+## Git
+
+Das Verzeichnis ist das Repository `trent2/reveal.js-plugins` (Branch `main`). Änderungen in kleinen, thematisch getrennten Commits (englische Betreffzeile), nicht pushen, solange der Nutzer es nicht verlangt.

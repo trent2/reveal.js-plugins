@@ -5,7 +5,7 @@
 #
 # 1. test/index.html     unit tests (fake deck) and integration test (real reveal.js)
 # 2. demo.html           loads without console warnings; all diagrams are built
-# 3. the presentation    loads without console warnings; expected number of diagrams, all solutions covered
+# 3. the presentation    (only if present; not in the repository) loads without console warnings; expected number of diagrams, all solutions covered
 set -u
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$PWD
@@ -63,6 +63,7 @@ print('  OK: 2 Venn diagrams, 1 tree, 1 four-field table, 1 covered solution')
 EOF
 
 echo "== Verknuepfen-Ereignisse.html"
+if [ ! -f Verknuepfen-Ereignisse.html ]; then echo "  skipped (file not present; it is not part of the repository)"; else
 load "file://$ROOT/Verknuepfen-Ereignisse.html" "$TMP/deck"
 msgs=$(console_messages "$TMP/deck")
 [ -z "$msgs" ] || { echo "  FAIL console messages:"; echo "$msgs" | sed 's/^/    /'; status=1; }
@@ -80,6 +81,7 @@ if bad or covered != total or total != 45 or 'katex-error' in dom:
     print('  FAIL (found, expected):', bad, f'covered {covered}/{total}'); sys.exit(1)
 print('  OK: 14 Venn diagrams, 1 tree, 2 four-field tables, 45 covered solutions')
 EOF
+fi
 
 [ $status -eq 0 ] && echo "ALL OK" || echo "FAILED"
 exit $status

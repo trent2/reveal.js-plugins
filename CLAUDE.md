@@ -8,14 +8,12 @@ Flaches Layout, wie im Repository `trent2/reveal.js-plugins` (dort ausgeliefert 
 
 | Datei | Zweck |
 |---|---|
-| `Verknuepfen-Ereignisse.html` | Die Präsentation (reveal.js 5 vom CDN, Inhalt deutsch, 13 Folien). Dient zugleich als **Testdatei** für alle Plugins. |
+| `Verknuepfen-Ereignisse.html` | Die Präsentation (reveal.js 5 vom CDN, Inhalt deutsch, 13 Folien), Testdatei für alle Plugins. **Liegt nur lokal und ist nicht im Repository** (steht in `.gitignore`); nicht committen, solange der Nutzer es nicht verlangt. |
 | `reveal-uncover.js` / `.css` | Plugin: Ergebnisse per Klick aufdecken (Klasse `uncover`). |
 | `reveal-probability.js` / `.css` | Plugin: Venn-Diagramme (zwei Mengen), Baumdiagramme, Vierfeldertafeln. |
 | `reveal-touchzoom.js` | Bestehendes Plugin (Tablet-Zoom). Lokale Kopie von Version 0.0.1 mit der zusätzlichen Option `ignore`; **noch nicht veröffentlicht**. Nur minimal ändern, der Code ist deutsch. |
 | `demo.html` | Kurze Demo mit minimalem Funktionsumfang (Venn, Baum, Vierfeldertafel, Aufdecken), englisch. Für Neulinge und als Smoke-Test. |
 | `test/index.html`, `test/run.sh` | Automatische Tests (siehe „Prüfen“). |
-
-Die Aufgabenvorlagen `aufgaben.png` und `weitereA.png` (Schulbuch) gehören nicht ins Repository.
 
 Die API jedes Plugins (Attribute, Konfiguration, Methoden) steht im Kommentar am Anfang der `.js`-Datei, die Farb-Variablen im Kopf der `.css`-Datei. Bei API-Änderungen diese Kommentare mitpflegen.
 
@@ -79,7 +77,7 @@ test/run.sh     # Exit-Code 0 = alles in Ordnung
    - *Vierfeldertafel:* Struktur und Zellreihenfolge, Standardwerte, Leerraum, `$…$`-sicheres Trennen, LaTeX unverändert, Text statt Markup, ungültige Eingaben.
    - *Plugin-API:* unabhängige Instanzen, `render()` idempotent, mit Bereich, nachträglich, nach Attributänderung, CSS-Variablen.
 2. **`demo.html`:** keine Konsolenmeldungen, erwartete Anzahl Diagramme, Lösung verdeckt.
-3. **Präsentation:** keine Konsolenmeldungen (außer `fsfx`), 14 Venn-Diagramme, 1 Baum, 2 Tafeln, alle 45 Lösungen verdeckt, keine KaTeX-Fehler.
+3. **Präsentation** (nur wenn die Datei vorhanden ist, sie liegt nicht im Repository): keine Konsolenmeldungen (außer `fsfx`), 14 Venn-Diagramme, 1 Baum, 2 Tafeln, alle 45 Lösungen verdeckt, keine KaTeX-Fehler.
 
 **Neue Funktion = neuer Test.** Bei Änderungen an einem Plugin zuerst `test/run.sh`, bei neuen Attributen oder Modi Tests und Kopfkommentar des Plugins ergänzen. Fehlt noch: der Doppeltipp-Zoom von `reveal-touchzoom` (braucht echte Touch-Ereignisse; nur Lade-Smoke-Test).
 

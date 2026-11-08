@@ -8,7 +8,9 @@
  *   <script src=".../reveal-touchzoom.js"></script>
  *   Reveal.initialize({ plugins: [ ..., RevealTouchZoom ] });
  * Optional:
- *   Reveal.initialize({ touchzoom: { max: 5, doppeltipp: 2.5 }, ... });
+ *   Reveal.initialize({ touchzoom: { max: 5, doppeltipp: 2.5, ignore: '.uncover' }, ... });
+ *   ignore: CSS-Selektor weiterer Elemente, auf denen ein Doppeltipp nicht zoomen soll
+ *           (zusätzlich zu Steuerelementen, Links, Schaltflächen und Eingabefeldern).
  *
  * Funktionsweise:
  *  – Im Vollbild ist .reveal das Vollbild-Element; dafür erzwingt der Browser
@@ -27,7 +29,7 @@
       const ziele = ['.slides', '.backgrounds'].map(sel => el.querySelector(sel)).filter(Boolean);
       const cfg = deck.getConfig().touchzoom || {};
       const MAX = cfg.max || 5, DOPPEL_STUFE = cfg.doppeltipp || 2.5, DOPPEL_MS = 350, TIPP_TOL = 12, DOPPEL_TOL = 40;
-      const KEIN_DOPPELTIPP = '.aufdeckbar, .controls, .progress, .fsbutton, a, button, input';
+      const KEIN_DOPPELTIPP = ['.controls, .progress, .fsbutton, a, button, input', cfg.ignore].filter(Boolean).join(', ');
 
       // Browser-eigenes Zoomen auf der Präsentation abschalten (verschiebt sonst das Layout)
       el.style.touchAction = 'none';

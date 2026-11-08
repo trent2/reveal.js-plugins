@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>reveal-probability / reveal-uncover tests</title>
+<base href="../">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
+<link rel="stylesheet" href="reveal-uncover.css">
+<link rel="stylesheet" href="reveal-probability.css">
+</head>
+<body>
+<!-- Unit tests build their fixtures here, outside of reveal.js -->
+<div id="scratch"></div>
+
+<!-- Integration test with the real reveal.js -->
+<div class="reveal" id="integration" style="height:300px"><div class="slides"><section>
+  <span class="uncover" id="i-a">a</span> <span class="uncover" id="i-b">b</span>
+  <div class="venn" id="i-venn" data-mode="union" data-left-only="1" data-both="2" data-right-only="3"></div>
+  <div class="fourfield" id="i-ff" data-columns="a|b" data-rows="c|d" data-values="1|2|3 ; 4|5|6 ; 7|8|9"></div>
+</section></div></div>
+
+<pre id="result"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+<script src="reveal-uncover.js"></script>
+<script src="reveal-probability.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Mini harness ----------
+  const results = [];
+  let warnings = [];
+  const nativeWarn = console.warn;
+  console.warn = (...args) => { warnings.push(args.filter(a => typeof a === 'string').join(' ')); };
+
+  const assert = (condition, message) => { if (!condition) throw new Error(message || 'assertion failed'); };
+  const eq = (actual, expected, message = '') =>
+    assert(JSON.stringify(actual) === JSON.stringify(expected),
+           `${message} expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`.trim());
+  const near = (actual, expected, message = '') =>
+    assert(Math.abs(actual - expected) < 1e-6, `${message} expected ${expected}, got ${actual}`.trim());
+
+  function test(name, fn) {
+    warnings = [];
+    try { fn(); results.push({ name, ok: true }); }
+    catch (e) { results.push({ name, ok: false, error: String(e.message || e) }); }
+  }
+  async function testAsync(name, fn) {
+    warnings = [];
+    try { await fn(); results.push({ name, ok: true }); }
+    catch (e) { results.push({ name, ok: false, error: String(e.message || e) }); }
+  }
+
+  const $ = (root, selector) => root.querySelector(selector);
+  const $$ = (root, selector) => [...root.querySelectorAll(selector)];
+  const text = el => el.textContent;
+
+  // ---------- Fixtures ----------
+  function container(html) {
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    document.getElementById('scratch').append(host);
+    return host;
+  }
+  // Initialise a plugin on a fake deck whose reveal element is `root`
+  function probabilityOn(root, config = {}) {
+    const plugin = RevealProbability();
+    plugin.init({ getConfig: () => ({ probability: config }), getRevealElement: () => root });
+    return plugin;
+  }
+  function uncoverOn(root, config = {}) {
+    const bindings = [];
+    const plugin = RevealUncover();
+    plugin.init({
+      getConfig: () => ({ uncover: config }),
+      getRevealElement: () => root,
+      addKeyBinding: (binding, callback) => bindings.push({ binding, callback })
+    });
+    return { plugin, bindings };
+  }
+  // Build one diagram from markup and return its host element
+  function build(html, config) {
+    const root = container(html);
+    probabilityOn(root, config);
+    return root.firstElementChild;
+  }
+  const venn = (attributes = '', config) => build(`<div class="venn" ${attributes}></div>`, config);
+  const tree = (attributes = '', config) => build(`<div class="tree" ${attributes}></div>`, config);
+  const fourfield = (attributes = '', config) => build(`<div class="fourfield" ${attributes}></div>`, config);
+
+  const fillKinds = host => $$(host, '.venn-fill').map(el => [...el.classList].find(c => c.startsWith('venn-fill-')).slice(10));
+  const labelsOf = (host, selector) => $$(host, selector).map(text);
+  const center = el => [Number(el.getAttribute('cx')), Number(el.getAttribute('cy'))];
+
+  // Region geometry, same numbers as the plugin
+  const dl = (x, y) => Math.hypot(x - 215, y - 180) - 125;
+  const dr = (x, y) => Math.hypot(x - 345, y - 180) - 125;
+  const IN_REGION = {
+    leftOnly:  (x, y) => dl(x, y) < 0 && dr(x, y) > 0,
+    both:      (x, y) => dl(x, y) < 0 && dr(x, y) < 0,
+    rightOnly: (x, y) => dr(x, y) < 0 && dl(x, y) > 0,
+    outside:   (x, y) => dl(x, y) > 0 && dr(x, y) > 0 && x > 10 && x < 550 && y > 10 && y < 350
+  };
+  const ATTRIBUTE = { leftOnly: 'data-left-only', both: 'data-both', rightOnly: 'data-right-only', outside: 'data-outside' };
+  const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+
+  // ======================================================================
+  // reveal-uncover
+  // ======================================================================
+  test('uncover: elements present at init start covered', () => {
+    const root = container('<span class="uncover">a</span><span class="uncover block">b</span>');
+    uncoverOn(root);
+    eq($$(root, '.uncover.covered').length, 2);
+  });
+
+  test('uncover: click toggles one element only', () => {
+    const root = container('<span class="uncover">a</span><span class="uncover">b</span>');
+    uncoverOn(root);
+    const [a, b] = $$(root, '.uncover');
+    a.click();
+    assert(!a.classList.contains('covered') && b.classList.contains('covered'), 'a uncovered, b covered');
+    a.click();
+    assert(a.classList.contains('covered'), 'covered again');
+  });
+
+  test('uncover: click on a child element toggles the uncover ancestor', () => {
+    const root = container('<span class="uncover"><b>x</b></span>');
+    uncoverOn(root);
+    $(root, 'b').click();
+    eq($$(root, '.uncover.covered').length, 0);
+  });
+
+  test('uncover: clicks outside of uncover elements do nothing', () => {
+    const root = container('<p id="p">text</p><span class="uncover">a</span>');
+    uncoverOn(root);
+    $(root, '#p').click();
+    eq($$(root, '.uncover.covered').length, 1);
+  });
+
+  test('uncover: works for SVG descendants', () => {
+    const root = container('<span class="uncover"><svg viewBox="0 0 10 10"><circle id="c" r="3"/></svg></span>');
+    uncoverOn(root);
+    $(root, '#c').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    eq($$(root, '.uncover.covered').length, 0);
+  });
+
+  test('uncover: API cover/uncover act on the given scope only', () => {
+    const root = container('<div id="s1"><span class="uncover">a</span></div><div id="s2"><span class="uncover">b</span></div>');
+    const { plugin } = uncoverOn(root);
+    plugin.uncover(root);
+    eq($$(root, '.covered').length, 0, 'all uncovered');
+    plugin.cover($(root, '#s1'));
+    eq([$$(root, '#s1 .covered').length, $$(root, '#s2 .covered').length], [1, 0]);
+    plugin.uncover($(root, '#s1'));
+    eq($$(root, '.covered').length, 0);
+  });
+
+  test('uncover: API toggle', () => {
+    const root = container('<span class="uncover">a</span>');
+    const { plugin } = uncoverOn(root);
+    const el = $(root, '.uncover');
+    plugin.toggle(el);
+    assert(!el.classList.contains('covered'));
+    plugin.toggle(el);
+    assert(el.classList.contains('covered'));
+  });
+
+  test('uncover: elements added later start uncovered but react to clicks and cover()', () => {
+    const root = container('');
+    const { plugin } = uncoverOn(root);
+    root.innerHTML = '<span class="uncover">late</span>';
+    const el = $(root, '.uncover');
+    assert(!el.classList.contains('covered'));
+    plugin.cover(root);
+    assert(el.classList.contains('covered'));
+    el.click();
+    assert(!el.classList.contains('covered'));
+  });
+
+  test('uncover: default key binding V covers everything', () => {
+    const root = container('<span class="uncover">a</span>');
+    const { plugin, bindings } = uncoverOn(root);
+    eq(bindings.length, 1);
+    eq([bindings[0].binding.keyCode, bindings[0].binding.key], [86, 'V']);
+    eq(bindings[0].binding.description, 'Cover all solutions');
+    plugin.uncover(root);
+    bindings[0].callback();
+    eq($$(root, '.covered').length, 1);
+  });
+
+  test('uncover: configured key and description', () => {
+    const { bindings } = uncoverOn(container(''), { key: 'x', keyDescription: 'Alle verdecken' });
+    eq([bindings[0].binding.keyCode, bindings[0].binding.key, bindings[0].binding.description], [88, 'X', 'Alle verdecken']);
+  });
+
+  test('uncover: key false registers no key binding', () => {
+    eq(uncoverOn(container(''), { key: false }).bindings.length, 0);
+  });
+
+  test('uncover: listener is bound to the reveal element only', () => {
+    const outside = container('<span class="uncover">o</span>');
+    uncoverOn(container('<span class="uncover">i</span>'));
+    $(outside, '.uncover').click();
+    assert(!$(outside, '.uncover').classList.contains('covered'));
+  });
+
+  // ======================================================================
+  // reveal-probability: Venn diagram
+  // ======================================================================
+  test('venn: default structure', () => {
+    const host = venn();
+    eq($$(host, 'svg').length, 1);
+    eq($(host, 'svg').getAttribute('viewBox'), '0 0 560 360');
+    eq($(host, 'svg').getAttribute('aria-label'), 'Venn diagram');
+    eq(labelsOf(host, '.venn-name'), ['A', 'B']);
+    eq(labelsOf(host, '.venn-universe-label'), ['S']);
+    eq([$$(host, '.venn-circle-1').length, $$(host, '.venn-circle-2').length, $$(host, '.venn-frame').length], [1, 1, 1]);
+    eq($$(host, '.venn-element').length, 0);
+    eq(warnings, []);
+  });
+
+  const FILLS = {
+    none:         ['blank'],
+    complement:   ['blank', 'highlight', 'blank'],
+    intersection: ['blank', 'highlight'],
+    union:        ['blank', 'highlight', 'highlight'],
+    difference:   ['blank', 'highlight', 'blank'],
+    partition:    ['blank', 'outside', 'left', 'right', 'both'],
+    probability:  ['blank', 'outside', 'left', 'right', 'both']
+  };
+  for (const [mode, kinds] of Object.entries(FILLS))
+    test(`venn: mode ${mode} paints the expected layers`, () => {
+      eq(fillKinds(venn(`data-mode="${mode}"`)), kinds);
+    });
+
+  test('venn: default mode is none', () => {
+    eq(fillKinds(venn()), FILLS.none);
+  });
+
+  test('venn: clipped layers reference an existing clipPath, ids are unique', () => {
+    const a = venn('data-mode="intersection"'), b = venn('data-mode="partition"');
+    const clipped = [...$$(a, '[clip-path]'), ...$$(b, '[clip-path]')];
+    eq(clipped.length, 2);
+    for (const el of clipped) {
+      const id = /url\(#(.+)\)/.exec(el.getAttribute('clip-path'))[1];
+      assert(document.getElementById(id), `clipPath ${id} exists`);
+    }
+    const ids = [...$$(a, 'clipPath'), ...$$(b, 'clipPath')].map(el => el.id);
+    eq(new Set(ids).size, 2, 'unique ids');
+  });
+
+  const ELEMENTS = 'data-left-only="1,2" data-both="3" data-right-only="4" data-outside="5"';
+  const HIGHLIGHTED = {
+    none: [], partition: [], probability: [],
+    complement: ['4', '5'], intersection: ['3'], union: ['1', '2', '3', '4'], difference: ['1', '2']
+  };
+  for (const [mode, expected] of Object.entries(HIGHLIGHTED))
+    if (mode !== 'probability')
+      test(`venn: mode ${mode} highlights elements ${JSON.stringify(expected)}`, () => {
+        const host = venn(`data-mode="${mode}" ${ELEMENTS}`);
+        eq(labelsOf(host, '.venn-element-label.venn-element-highlighted').sort(), expected);
+        eq($$(host, '.venn-element').length, 5);
+        eq($$(host, '.venn-element-highlighted').length, expected.length * 2, 'circle and label are marked');
+      });
+
+  test('venn: mode probability draws values instead of elements', () => {
+    const host = venn(`data-mode="probability" data-values="0,1 | 0,15|0,05|0,7" ${ELEMENTS}`);
+    eq(labelsOf(host, '.venn-value'), ['0,1', '0,15', '0,05', '0,7']);
+    eq($$(host, '.venn-element').length, 0);
+  });
+
+  test('venn: surplus values are ignored, missing values leave regions empty', () => {
+    eq(labelsOf(venn('data-mode="probability" data-values="1|2|3|4|5"'), '.venn-value'), ['1', '2', '3', '4']);
+    eq(labelsOf(venn('data-mode="probability" data-values="1|2"'), '.venn-value'), ['1', '2']);
+    eq(labelsOf(venn('data-mode="probability"'), '.venn-value'), []);
+  });
+
+  test('venn: names from data-names', () => {
+    eq(labelsOf(venn('data-names="I, V"'), '.venn-name'), ['I', 'V']);
+  });
+
+  test('venn: wrong number of names warns and falls back to A,B', () => {
+    const host = venn('data-names="X"');
+    eq(labelsOf(host, '.venn-name'), ['A', 'B']);
+    eq(warnings.length, 1);
+    assert(warnings[0].includes('[reveal-probability]'));
+  });
+
+  test('venn: mini draws only circles and colours', () => {
+    const host = build('<div class="venn mini" data-mode="union" data-left-only="1"></div>');
+    eq([$$(host, 'text').length, $$(host, '.venn-element').length], [0, 0]);
+    eq(fillKinds(host), FILLS.union);
+    eq($$(host, '.venn-circle').length, 2);
+  });
+
+  test('venn: unknown mode warns and behaves like none', () => {
+    const host = venn('data-mode="foo"');
+    eq(fillKinds(host), FILLS.none);
+    eq(warnings.length, 1);
+    assert(warnings[0].includes('foo') && warnings[0].includes('partition'), 'names the mode and the allowed ones');
+  });
+
+  test('venn: aria-label from configuration, escaped', () => {
+    eq($(venn('', { labels: { venn: 'Mengen "A"' } }), 'svg').getAttribute('aria-label'), 'Mengen "A"');
+  });
+
+  test('venn: labels are escaped, no markup injection', () => {
+    const host = venn('data-mode="none" data-names="&lt;i&gt;,B" data-left-only="a&lt;b&gt;x&lt;/b&gt;"');
+    eq($$(host, 'i, b').length, 0);
+    eq(labelsOf(host, '.venn-name')[0], '<i>');
+    eq(labelsOf(host, '.venn-element-label'), ['a<b>x</b>']);
+  });
+
+  // ---- automatic placement ----
+  for (const region of Object.keys(ATTRIBUTE))
+    test(`venn: automatic placement keeps elements inside region ${region}`, () => {
+      const host = venn(`${ATTRIBUTE[region]}="${range(1, 3).join(',')}"`);
+      const circles = $$(host, '.venn-element');
+      eq(circles.length, 3);
+      for (const c of circles) {
+        const [x, y] = center(c);
+        assert(IN_REGION[region](x, y), `(${x},${y}) lies in ${region}`);
+        near(Number(c.getAttribute('r')), 14, 'radius');
+      }
+    });
+
+  test('venn: automatic placement - 12 elements in rightOnly stay inside and do not overlap', () => {
+    const host = venn(`data-right-only="${range(1, 12).join(',')}"`);
+    const points = $$(host, '.venn-element').map(center);
+    eq(points.length, 12);
+    for (const [x, y] of points) {
+      assert(IN_REGION.rightOnly(x, y), 'inside');
+      assert(dr(x, y) <= -14 && dl(x, y) >= 14, 'does not touch a circle line');
+    }
+    for (let i = 0; i < points.length; i++)
+      for (let j = i + 1; j < points.length; j++)
+        assert(Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]) >= 28, `elements ${i},${j} do not overlap`);
+    eq(warnings, []);
+  });
+
+  test('venn: automatic placement - all four regions at once do not overlap', () => {
+    const host = venn('data-left-only="1,2,3,4,5" data-both="6,7,8" data-right-only="9,10,11,12,13,14" data-outside="15,16,17,18,19,20"');
+    const points = $$(host, '.venn-element').map(center);
+    eq(points.length, 20);
+    for (let i = 0; i < points.length; i++)
+      for (let j = i + 1; j < points.length; j++)
+        assert(Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]) >= 28, `elements ${i},${j} do not overlap`);
+  });
+
+  test('venn: outside elements keep away from the labels', () => {
+    const host = venn(`data-outside="${range(1, 6).join(',')}"`);
+    for (const [x, y] of $$(host, '.venn-element').map(center))
+      for (const [lx, ly] of [[92, 90], [468, 90], [532, 340]])
+        assert(Math.hypot(x - lx, y - ly) > 40, 'clear of label');
+  });
+
+  test('venn: too many elements warn and are not drawn', () => {
+    const host = venn(`data-right-only="${range(1, 40).join(',')}"`);
+    eq($$(host, '.venn-element').length, 0);
+    eq(warnings.length, 1);
+  });
+
+  test('venn: element order follows the attribute (placement is deterministic)', () => {
+    const a = $$(venn('data-both="1,2,3"'), '.venn-element').map(center);
+    const b = $$(venn('data-both="1,2,3"'), '.venn-element').map(center);
+    eq(a, b);
+  });
+
+  // ---- sets ----
+  const SET = {
+    names: ['I', 'V'],
+    leftOnly: [1, 2], both: [3], rightOnly: [4], outside: [5],
+    positions: { 1: [100, 100], 2: [120, 140], 3: [280, 180], 4: [410, 180], 5: [50, 300] }
+  };
+  test('venn: set supplies names, elements and exact positions', () => {
+    const host = venn('data-mode="union" data-set="s"', { sets: { s: SET } });
+    eq(labelsOf(host, '.venn-name'), ['I', 'V']);
+    const placed = Object.fromEntries($$(host, '.venn-element').map(c => [text(c.nextElementSibling), center(c)]));
+    eq(placed, { 1: [100, 100], 2: [120, 140], 3: [280, 180], 4: [410, 180], 5: [50, 300] });
+    eq(labelsOf(host, '.venn-element-label.venn-element-highlighted').sort(), ['1', '2', '3', '4']);
+  });
+
+  test('venn: data-names beats the names of the set', () => {
+    eq(labelsOf(venn('data-set="s" data-names="X,Y"', { sets: { s: SET } }), '.venn-name'), ['X', 'Y']);
+  });
+
+  test('venn: explicit region attribute beats the set, other regions stay', () => {
+    const host = venn('data-set="s" data-left-only="a"', { sets: { s: SET } });
+    eq(labelsOf(host, '.venn-element-label').sort(), ['3', '4', '5', 'a']);
+  });
+
+  test('venn: region without complete positions is placed automatically', () => {
+    const partial = { ...SET, positions: { 1: [100, 100] } };         // 2 has no position
+    const host = venn('data-set="s"', { sets: { s: partial } });
+    const left = $$(host, '.venn-element').filter(c => ['1', '2'].includes(text(c.nextElementSibling)));
+    eq(left.length, 2);
+    for (const c of left) assert(IN_REGION.leftOnly(...center(c)), 'auto placed inside leftOnly');
+  });
+
+  test('venn: unknown set warns, diagram is still drawn', () => {
+    const host = venn('data-set="nope"');
+    eq($$(host, 'svg').length, 1);
+    eq(warnings.length, 1);
+    assert(warnings[0].includes('nope'));
+  });
+
+  test('venn: set labels can be numbers', () => {
+    eq(labelsOf(venn('data-set="s"', { sets: { s: { leftOnly: [7] } } }), '.venn-element-label'), ['7']);
+  });
+
+  // ======================================================================
+  // reveal-probability: tree diagram
+  // ======================================================================
+  const TREE = 'data-names="A,B" data-probabilities="1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"';
+  test('tree: structure', () => {
+    const host = tree(TREE);
+    eq($(host, 'svg').getAttribute('aria-label'), 'Tree diagram');
+    eq($$(host, '.tree-branch').length, 6);
+    eq($$(host, '.tree-node').length, 6);
+    eq([$$(host, '.tree-node.tree-node-1').length, $$(host, '.tree-node.tree-node-2').length], [2, 4]);
+    eq(labelsOf(host, '.tree-node-label'), ['A', 'A', 'B', 'B', 'B', 'B']);
+    eq($$(host, '.tree-overline').length, 3, 'one complement on stage 1, two on stage 2');
+    eq(warnings, []);
+  });
+
+  test('tree: overlines sit on the complements only', () => {
+    const host = tree(TREE);
+    const labels = $$(host, '.tree-node-label').map(el => [Number(el.getAttribute('x')), Number(el.getAttribute('y'))]);
+    const lines = $$(host, '.tree-overline').map(el => Number(el.getAttribute('x1')) + 7);
+    eq(lines, [labels[1][0], labels[3][0], labels[5][0]]);
+  });
+
+  test('tree: fractions are stacked, other text stays on one line', () => {
+    const fractions = tree(TREE);
+    eq($$(fractions, '.tree-fraction-bar').length, 6);
+    eq(labelsOf(fractions, '.tree-probability'), ['1', '6', '5', '6', '1', '3', '2', '3', '4', '5', '1', '5']);
+    const decimals = tree('data-probabilities="0,3|0,7 ; 0,5|0,5 ; 0,2|0,8"');
+    eq($$(decimals, '.tree-fraction-bar').length, 0);
+    eq(labelsOf(decimals, '.tree-probability'), ['0,3', '0,7', '0,5', '0,5', '0,2', '0,8']);
+  });
+
+  test('tree: mixed fractions and decimals', () => {
+    const host = tree('data-probabilities="1/2|0,5 ; 1/3|2/3 ; 0,2|4/5"');
+    eq($$(host, '.tree-fraction-bar').length, 4);
+  });
+
+  test('tree: default names A,B', () => {
+    eq(labelsOf(tree('data-probabilities="1|2 ; 3|4 ; 5|6"'), '.tree-node-label'), ['A', 'A', 'B', 'B', 'B', 'B']);
+  });
+
+  test('tree: branch labels sit beside their branch', () => {
+    const host = tree(TREE);
+    const lines = $$(host, '.tree-branch');
+    const bars = $$(host, '.tree-fraction-bar');
+    eq(bars.length, lines.length);
+    lines.forEach((line, i) => {
+      const left = Number(line.getAttribute('x2')) < Number(line.getAttribute('x1'));
+      const mid = (Number(line.getAttribute('x1')) + Number(line.getAttribute('x2'))) / 2;
+      const barX = (Number(bars[i].getAttribute('x1')) + Number(bars[i].getAttribute('x2'))) / 2;
+      near(barX, mid + (left ? -27 : 27), `label ${i}`);
+    });
+  });
+
+  test('tree: invalid probabilities warn and draw nothing', () => {
+    for (const bad of ['', 'data-probabilities="1/6|5/6"', 'data-probabilities="1|2 ; 3|4 ; 5"', 'data-probabilities="1|2|3 ; 4|5 ; 6|7"']) {
+      warnings = [];
+      const host = tree(bad);
+      eq(host.children.length, 0, `nothing drawn for ${bad}`);
+      eq(warnings.length, 1, `one warning for ${bad}`);
+    }
+  });
+
+  test('tree: aria-label from configuration', () => {
+    eq($(tree(TREE, { labels: { tree: 'Baumdiagramm' } }), 'svg').getAttribute('aria-label'), 'Baumdiagramm');
+  });
+
+  test('tree: names and probabilities are escaped', () => {
+    const host = tree('data-names="&lt;b&gt;,B" data-probabilities="&lt;i&gt;|2 ; 3|4 ; 5|6"');
+    eq($$(host, 'b, i').length, 0);
+    eq(labelsOf(host, '.tree-node-label')[0], '<b>');
+  });
+
+  // ======================================================================
+  // reveal-probability: four-field table
+  // ======================================================================
+  const FF = 'data-corner="Feature" data-total-label="Sum" data-columns="K|L" data-rows="T|U" data-values="1|2|3 ; 4|5|6 ; 7|8|9"';
+  test('fourfield: structure and cell order', () => {
+    const host = fourfield(FF);
+    eq($$(host, 'table').length, 1);
+    eq($$(host, 'tr').length, 4);
+    eq($$(host, 'tr').map(tr => tr.children.length), [4, 4, 4, 4]);
+    eq($$(host, 'th').map(text), ['Feature', 'K', 'L', 'Sum', 'T', 'U', 'Sum']);
+    eq($$(host, 'td').map(text), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+    eq($$(host, 'td.inner').map(text), ['1', '2', '4', '5']);
+    eq(warnings, []);
+  });
+
+  test('fourfield: defaults for corner and total label', () => {
+    const host = fourfield('data-columns="K|L" data-rows="T|U" data-values="1|2|3;4|5|6;7|8|9"');
+    eq($$(host, 'th').map(text), ['', 'K', 'L', 'Σ', 'T', 'U', 'Σ']);
+  });
+
+  test('fourfield: whitespace and line breaks are trimmed', () => {
+    const host = fourfield(`data-columns=" K | L " data-rows="T|U"
+      data-values="
+        1 | 2 | 3 ;
+        4 | 5 | 6 ;
+        7 | 8 | 9 "`);
+    eq($$(host, 'td').map(text), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+    eq($$(host, 'th').slice(1, 3).map(text), ['K', 'L']);
+  });
+
+  test('fourfield: separators inside $…$ are not split', () => {
+    const host = fourfield(String.raw`data-columns="$P(A|B)$|$a\;b$" data-rows="$x|y$|U" data-values="$a|b$|2|3 ; 4|5|6 ; 7|8|9"`);
+    eq($$(host, 'th').map(text).slice(1, 3), ['$P(A|B)$', String.raw`$a\;b$`]);
+    eq($$(host, 'th').map(text)[4], '$x|y$');
+    eq($$(host, 'td').map(text)[0], '$a|b$');
+  });
+
+  test('fourfield: LaTeX is kept verbatim (backslashes, braces)', () => {
+    const host = fourfield(String.raw`data-columns="$K$|$\overline{K}$" data-rows="T|U" data-values="$\frac{3}{8}$|2|3 ; 4|5|6 ; 7|8|9"`);
+    eq(text($$(host, 'th')[2]), String.raw`$\overline{K}$`);
+    eq(text($$(host, 'td')[0]), String.raw`$\frac{3}{8}$`);
+  });
+
+  test('fourfield: cells are text, not markup', () => {
+    const host = fourfield('data-columns="&lt;b&gt;x&lt;/b&gt;|L" data-rows="T|U" data-values="1|2|3 ; 4|5|6 ; 7|8|9"');
+    eq($$(host, 'b').length, 0);
+    eq(text($$(host, 'th')[1]), '<b>x</b>');
+  });
+
+  test('fourfield: invalid input warns and draws nothing', () => {
+    const bad = [
+      'data-columns="K" data-rows="T|U" data-values="1|2|3;4|5|6;7|8|9"',
+      'data-columns="K|L" data-rows="T|U|V" data-values="1|2|3;4|5|6;7|8|9"',
+      'data-columns="K|L" data-rows="T|U" data-values="1|2|3;4|5|6"',
+      'data-columns="K|L" data-rows="T|U" data-values="1|2;4|5|6;7|8|9"',
+      'data-columns="K|L" data-rows="T|U"',
+      ''
+    ];
+    for (const attributes of bad) {
+      warnings = [];
+      const host = fourfield(attributes);
+      eq(host.children.length, 0, `nothing drawn for: ${attributes}`);
+      eq(warnings.length, 1, `one warning for: ${attributes}`);
+    }
+  });
+
+  // ======================================================================
+  // reveal-probability: plugin API
+  // ======================================================================
+  test('probability: plugin object', () => {
+    const plugin = RevealProbability();
+    eq(plugin.id, 'probability');
+    eq(typeof plugin.init, 'function');
+    eq(typeof plugin.render, 'function');
+  });
+
+  test('probability: each factory call gives an independent instance', () => {
+    const a = RevealProbability(), b = RevealProbability();
+    assert(a !== b);
+    const rootA = container('<div class="venn" data-set="s"></div>'), rootB = container('<div class="venn" data-set="s"></div>');
+    a.init({ getConfig: () => ({ probability: { sets: { s: { leftOnly: [1] } } } }), getRevealElement: () => rootA });
+    b.init({ getConfig: () => ({ probability: {} }), getRevealElement: () => rootB });
+    eq($$(rootA, '.venn-element').length, 1);
+    eq($$(rootB, '.venn-element').length, 0);
+  });
+
+  test('probability: init without configuration works', () => {
+    const root = container('<div class="venn"></div>');
+    RevealProbability().init({ getConfig: () => ({}), getRevealElement: () => root });
+    eq($$(root, 'svg').length, 1);
+  });
+
+  test('probability: render() is idempotent and keeps one svg/table per host', () => {
+    const root = container('<div class="venn" data-left-only="1,2"></div><div class="tree" data-probabilities="1|2;3|4;5|6"></div>'
+      + '<div class="fourfield" data-columns="a|b" data-rows="c|d" data-values="1|2|3;4|5|6;7|8|9"></div>');
+    const plugin = probabilityOn(root);
+    const before = root.innerHTML.replace(/venn-clip-\d+/g, 'CLIP');
+    plugin.render(root);
+    plugin.render(root);
+    eq(root.innerHTML.replace(/venn-clip-\d+/g, 'CLIP'), before);
+    eq([$$(root, 'svg').length, $$(root, 'table').length], [2, 1]);
+  });
+
+  test('probability: render(scope) leaves hosts outside the scope untouched', () => {
+    const root = container('<div id="in"><div class="venn"></div></div><div id="out"><div class="venn"></div></div>');
+    const plugin = RevealProbability();
+    plugin.init({ getConfig: () => ({}), getRevealElement: () => container('') });
+    plugin.render($(root, '#in'));
+    eq([$$(root, '#in svg').length, $$(root, '#out svg').length], [1, 0]);
+  });
+
+  test('probability: render() picks up diagrams added later', () => {
+    const root = container('');
+    const plugin = probabilityOn(root);
+    root.innerHTML = '<div class="tree" data-probabilities="1|2;3|4;5|6"></div>';
+    eq($$(root, 'svg').length, 0);
+    plugin.render(root);
+    eq($$(root, 'svg').length, 1);
+  });
+
+  test('probability: re-render after changing an attribute updates the diagram', () => {
+    const root = container('<div class="venn" data-names="A,B"></div>');
+    const plugin = probabilityOn(root);
+    $(root, '.venn').dataset.names = 'X,Y';
+    plugin.render(root);
+    eq(labelsOf(root, '.venn-name'), ['X', 'Y']);
+  });
+
+  test('probability: CSS custom properties have defaults', () => {
+    const value = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    for (const name of ['--probability-color-1', '--probability-color-2', '--probability-highlight', '--probability-paper'])
+      assert(value(name) !== '', `${name} defined`);
+  });
+
+  test('probability: styles apply (circle strokes use the colour variables)', () => {
+    const host = venn('data-mode="union"');
+    host.parentElement.classList.add('reveal');       // the plugin CSS is scoped to .reveal
+    document.documentElement.style.setProperty('--probability-color-1', 'rgb(1, 2, 3)');
+    try {
+      eq(getComputedStyle($(host, '.venn-circle-1')).stroke, 'rgb(1, 2, 3)');
+    } finally {
+      document.documentElement.style.removeProperty('--probability-color-1');
+    }
+  });
+
+  test('uncover: styles apply (covered elements are blurred)', () => {
+    const root = container('<span class="uncover covered">a</span><span class="uncover block">b</span>');
+    root.className = 'reveal';
+    assert(getComputedStyle($(root, '.covered')).filter.includes('blur'), 'blur filter');
+    eq(getComputedStyle($(root, '.block')).display, 'block');
+    eq(getComputedStyle($(root, '.uncover')).cursor, 'pointer');
+  });
+
+  // ======================================================================
+  // Integration with the real reveal.js
+  // ======================================================================
+  const deck = new Reveal(document.getElementById('integration'), {
+    plugins: [RevealUncover, RevealProbability],
+    probability: { labels: { venn: 'Mengendiagramm' } },
+    uncover: { keyDescription: 'Alle verdecken' }
+  });
+  deck.initialize().then(async () => {
+    await testAsync('integration: plugins are registered', () => {
+      assert(deck.getPlugin('uncover') && deck.getPlugin('probability'));
+    });
+    await testAsync('integration: diagrams are built before ready, config is read', () => {
+      eq(document.querySelector('#i-venn svg').getAttribute('aria-label'), 'Mengendiagramm');
+      eq(document.querySelectorAll('#i-ff th').length, 7);
+    });
+    await testAsync('integration: solutions start covered and toggle on click', () => {
+      const a = document.getElementById('i-a'), b = document.getElementById('i-b');
+      assert(a.classList.contains('covered') && b.classList.contains('covered'));
+      a.click();
+      assert(!a.classList.contains('covered') && b.classList.contains('covered'));
+    });
+    await testAsync('integration: key V covers everything again', () => {
+      deck.getPlugin('uncover').uncover();
+      document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 86, which: 86, key: 'v', bubbles: true }));
+      eq(document.querySelectorAll('#integration .uncover.covered').length, 2);
+    });
+    await testAsync('integration: no unexpected warnings', () => { eq(warnings, []); });
+    finish();
+  });
+
+  function finish() {
+    console.warn = nativeWarn;
+    const failed = results.filter(r => !r.ok);
+    document.getElementById('result').textContent = JSON.stringify({ total: results.length, failed: failed.length, results }, null, 1);
+    document.body.dataset.done = 'true';
+  }
+})();
+</script>
+</body>
+</html>

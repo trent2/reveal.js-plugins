@@ -1,0 +1,187 @@
+/*!
+ * reveal-probability.css – styles for reveal-probability.js
+ *
+ * Colours and fonts can be changed with these custom properties, e.g. in your own
+ * stylesheet on :root or .reveal:
+ *
+ *   --probability-color-1           event 1: left circle, first tree level, table headings
+ *   --probability-color-2           event 2: right circle, second tree level
+ *   --probability-highlight         highlighted region of a Venn diagram
+ *   --probability-region-outside    "partition" and "probability" mode: outside both circles
+ *   --probability-region-left       ... only in the left circle
+ *   --probability-region-right      ... only in the right circle
+ *   --probability-region-both       ... in both circles
+ *   --probability-paper             background of the diagrams and of blank regions
+ *   --probability-frame             frame of the sample space, label "S"
+ *   --probability-muted             outline of elements that are not highlighted
+ *   --probability-text              values and probabilities
+ *   --probability-element-text      labels of elements that are not highlighted
+ *   --probability-line              branches of the tree
+ *   --probability-table-border      borders of the four-field table
+ *   --probability-table-head        background of the headings of the four-field table
+ *   --probability-table-inner       background of the four inner fields
+ *
+ * The SVG text inherits the font of the slides.
+ */
+
+:root {
+  --probability-color-1: #1F4E7A;
+  --probability-color-2: #2E7D32;
+  --probability-highlight: #F9D2CC;
+  --probability-region-outside: #E6E9EE;
+  --probability-region-left: #CFE3F7;
+  --probability-region-right: #CDEBD3;
+  --probability-region-both: #FFE0A3;
+  --probability-paper: #fff;
+  --probability-frame: #5B6779;
+  --probability-muted: #8A94A3;
+  --probability-text: #222;
+  --probability-element-text: #333;
+  --probability-line: #222;
+  --probability-table-border: #C9D6E4;
+  --probability-table-head: #EEF4FA;
+  --probability-table-inner: #EDF3FB;
+}
+
+/* ---------- Size ---------- */
+
+.reveal .venn svg,
+.reveal .tree svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.reveal .venn.mini {
+  width: 130px;
+}
+
+/* ---------- Venn diagram ---------- */
+
+.reveal .venn-fill-blank     { fill: var(--probability-paper); }
+.reveal .venn-fill-highlight { fill: var(--probability-highlight); }
+.reveal .venn-fill-outside   { fill: var(--probability-region-outside); }
+.reveal .venn-fill-left      { fill: var(--probability-region-left); }
+.reveal .venn-fill-right     { fill: var(--probability-region-right); }
+.reveal .venn-fill-both      { fill: var(--probability-region-both); }
+
+.reveal .venn-frame {
+  fill: none;
+  stroke: var(--probability-frame);
+  stroke-width: 2.5;
+}
+
+.reveal .venn-circle {
+  fill: none;
+  stroke-width: 3;
+}
+.reveal .venn-circle-1 { stroke: var(--probability-color-1); }
+.reveal .venn-circle-2 { stroke: var(--probability-color-2); }
+
+.reveal .venn.mini .venn-frame  { stroke-width: 7; }
+.reveal .venn.mini .venn-circle { stroke-width: 9; }
+
+.reveal .venn text {
+  text-anchor: middle;
+}
+
+.reveal .venn-name {
+  font-size: 30px;
+  font-weight: 700;
+}
+.reveal .venn-name-1 { fill: var(--probability-color-1); }
+.reveal .venn-name-2 { fill: var(--probability-color-2); }
+
+.reveal .venn-universe-label {
+  font-size: 22px;
+  font-style: italic;
+  fill: var(--probability-frame);
+}
+
+.reveal .venn-value {
+  font-size: 30px;
+  fill: var(--probability-text);
+}
+
+.reveal .venn-element {
+  fill: var(--probability-paper);
+  stroke: var(--probability-muted);
+  stroke-width: 1.5;
+}
+.reveal .venn-element-label {
+  font-size: 15px;
+  fill: var(--probability-element-text);
+}
+.reveal .venn-element.venn-element-highlighted {
+  fill: var(--probability-color-1);
+  stroke: var(--probability-color-1);
+}
+.reveal .venn-element-label.venn-element-highlighted {
+  fill: var(--probability-paper);
+}
+
+/* ---------- Tree diagram ---------- */
+
+.reveal .tree-node-1 { --tree-color: var(--probability-color-1); }
+.reveal .tree-node-2 { --tree-color: var(--probability-color-2); }
+
+.reveal .tree-branch {
+  stroke: var(--probability-line);
+  stroke-width: 1.8;
+}
+
+.reveal .tree-node {
+  fill: var(--probability-paper);
+  stroke: var(--tree-color);
+  stroke-width: 2;
+}
+.reveal .tree-node-label {
+  font-size: 22px;
+  text-anchor: middle;
+  fill: var(--tree-color);
+}
+.reveal .tree-overline {
+  stroke: var(--tree-color);
+  stroke-width: 1.8;
+}
+
+.reveal .tree-probability {
+  font-size: 19px;
+  text-anchor: middle;
+  fill: var(--probability-text);
+}
+.reveal .tree-fraction-bar {
+  stroke: var(--probability-text);
+  stroke-width: 1.6;
+}
+
+/* ---------- Four-field table ---------- */
+
+.reveal .fourfield table {
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-size: .9em;
+}
+
+.reveal .fourfield th,
+.reveal .fourfield td {
+  text-align: center;
+  padding: .2em .5em;
+  border: 1.5px solid var(--probability-table-border);
+  white-space: nowrap;
+}
+
+.reveal .fourfield th {
+  background: var(--probability-table-head);
+  color: var(--probability-color-1);
+}
+
+.reveal .fourfield td.inner {
+  background: var(--probability-table-inner);
+}
+
+/* reveal.js themes remove the bottom border of the last row; keep it. */
+.reveal .fourfield table tr:last-child th,
+.reveal .fourfield table tr:last-child td {
+  border-bottom: 1.5px solid var(--probability-table-border);
+}

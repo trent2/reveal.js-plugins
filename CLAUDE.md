@@ -8,7 +8,7 @@ Flaches Layout, wie im Repository `trent2/reveal.js-plugins` (dort ausgeliefert 
 
 | Datei | Zweck |
 |---|---|
-| `Verknuepfen-Ereignisse.html` | Die Präsentation (reveal.js 5 vom CDN, Inhalt deutsch, 13 Folien), Testdatei für alle Plugins. **Liegt nur lokal und ist nicht im Repository** (steht in `.gitignore`); nicht committen, solange der Nutzer es nicht verlangt. |
+| `Verknuepfen-Ereignisse.html` | Die Präsentation (reveal.js 5 vom CDN, Inhalt deutsch, derzeit 15 Folien), Testdatei für alle Plugins. **Liegt nur lokal und ist nicht im Repository** (steht in `.gitignore`); nicht committen, solange der Nutzer es nicht verlangt. |
 | `reveal-uncover.js` / `.css` | Plugin: Ergebnisse per Klick aufdecken (Klasse `uncover`). |
 | `reveal-probability.js` / `.css` | Plugin: Venn-Diagramme (zwei Mengen), Baumdiagramme, Vierfeldertafeln. |
 | `reveal-touchzoom.js` | Bestehendes Plugin (Tablet-Zoom). Lokale Kopie von Version 0.0.1 mit der zusätzlichen Option `ignore`; **noch nicht veröffentlicht**. Nur minimal ändern, der Code ist deutsch. |
@@ -16,6 +16,7 @@ Flaches Layout, wie im Repository `trent2/reveal.js-plugins` (dort ausgeliefert 
 | `docs/reference.md`, `docs/build.sh` | **Geplant.** Referenzdokumentation der Vorlagen (Pandoc-Markdown, deutsch); `build.sh` erzeugt HTML und PDF (`pandoc` ist hier nicht installiert, Ausgaben in `.gitignore`). Plugin-APIs bleiben in den Kopfkommentaren der `.js`-Dateien. |
 | `demo.html` | Kurze Demo mit minimalem Funktionsumfang (Venn, Baum, Vierfeldertafel, Aufdecken), englisch. Für Neulinge und als Smoke-Test. |
 | `test/index.html`, `test/run.sh` | Automatische Tests (siehe „Prüfen“). |
+| `test/deck-snapshot.py`, `test/golden/deck.json` | Zusammenfassung der Präsentation pro Folie und der Golden Master dazu. Der Master liegt nur lokal (steht in `.gitignore`, wie die Präsentation) und wird mit `test/run.sh --update-golden` neu erzeugt. |
 
 Die API jedes Plugins (Attribute, Konfiguration, Methoden) steht im Kommentar am Anfang der `.js`-Datei, die Farb-Variablen im Kopf der `.css`-Datei. Bei API-Änderungen diese Kommentare mitpflegen.
 
@@ -31,7 +32,7 @@ Die API jedes Plugins (Attribute, Konfiguration, Methoden) steht im Kommentar am
 - **Aussehen steht im CSS, nicht im JS.** Das JS enthält nur Geometrie; SVG-Elemente tragen Klassen (`venn-…`, `tree-…`). Farben sind Custom Properties (`--probability-*`, `--uncover-transition-time`) mit Standardwerten in der Plugin-CSS.
 - **Keine Daten des Decks im Plugin.** Die 20 Personen der Folien 2 bis 7 stehen in der Deck-Konfiguration `probability.sets.persons`, nicht im Plugin-Code.
 - **Plugins sind voneinander unabhängig.** `reveal-touchzoom` muss ohne `reveal-uncover` laufen (und umgekehrt). Verbunden werden sie nur durch die Deck-Konfiguration `touchzoom: { ignore: '.uncover' }`.
-- **Kopplung über Konvention, nicht über Code (geplant):** `reveal-probability` setzt auf Werte, die der Nutzer mit führendem `?` markiert (`data-values="?0,15|0,1|…"`, `data-probabilities="?1/6|…"`, Kurzform `data-uncover="all"`), die Klasse `uncover`. Es kennt `reveal-uncover` nicht als Abhängigkeit; nur falls vorhanden, ruft es danach `deck.getPlugin('uncover')?.cover(host)` auf (Fallback: bubbelndes `CustomEvent('probability:rendered')`, falls `getPlugin` während `init` noch nichts liefert). Ohne Uncover-Plugin sind die Werte sichtbar. Vierfeldertafel: Inhalt in `<span class="uncover block">` innerhalb der Zelle, nicht die `td` selbst; SVG (Baum, Venn): `<g class="uncover">` um Text bzw. Bruch.
+- **Kopplung über Konvention, nicht über Code:** `reveal-probability` setzt auf Werte, die der Nutzer mit führendem `?` markiert (`data-values="?0,15|0,1|…"`, `data-probabilities="?1/6|…"`, Kurzform `data-uncover="all"`), die Klasse `uncover`. Es kennt `reveal-uncover` nicht als Abhängigkeit; nur falls vorhanden, ruft es danach `deck.getPlugin('uncover')?.cover(host)` auf (Fallback: bubbelndes `CustomEvent('probability:rendered')`, falls `getPlugin` während `init` noch nichts liefert). Ohne Uncover-Plugin sind die Werte sichtbar. Vierfeldertafel: Inhalt in `<span class="uncover block">` innerhalb der Zelle, nicht die `td` selbst; SVG (Baum, Venn-Werte): `<g class="uncover">` um Text bzw. Bruch. `getPlugin` ist während `init` verfügbar, ein Event war nicht nötig. Verdeckt wird nur der Diagramm-Host (`cover(host)`), nie der ganze Bereich, damit vom Nutzer aufgedeckte Lösungen beim späteren `render(scope)` offen bleiben. `!` vor einer Tafelzelle gibt ihr die Klasse `highlight` (roter Rahmen, `--probability-table-highlight`); kombinierbar: `?!0,23`.
 - **Tasten in `reveal-uncover`:** `U` Folie aufdecken, `Shift+U` alles aufdecken, `V` Folie verdecken, `Shift+V` alles verdecken (vorher verdeckte `V` alles). Konfiguration `uncover: { keys: { uncoverSlide, uncoverAll, coverSlide, coverAll }, descriptions: {…} }` ersetzt `key`/`keyDescription`; `false` schaltet eine Taste ab. Folie = `deck.getCurrentSlide()`. reveal.js verwirft Tastendrücke mit Shift/Strg/Alt, bevor es `addKeyBinding`-Callbacks aufruft; `U`/`V` laufen deshalb über `addKeyBinding`, die `Shift+`-Tasten über einen eigenen `keydown`-Listener (nicht in Eingabefeldern), die Hilfezeile über `deck.registerKeyboardShortcut`.
 - **Folienvorlagen (geplant):** Klasse `layout-<name>` am `<section>`, Inhalte über Kind-Klassen. Vorlagen: `layout-title`, `layout-section`, `layout-content`, `layout-two-columns`, `layout-side`, `layout-task`, `layout-summary`; Bausteine `box`, `box-definition`, `legend`. Sie lösen später `.raster-venn`, `.aufg`, `.zus`, `.box`, `.legende` des Decks ab; bis zur beauftragten Migration (mit Pixelvergleich) bleiben die deutschen Klassen.
 - Eingaben prüfen und bei Fehlern `console.warn('[reveal-probability] …')` statt Exceptions oder `undefined` im Bild.
@@ -52,6 +53,8 @@ Die API jedes Plugins (Attribute, Konfiguration, Methoden) steht im Kommentar am
 <div class="fourfield" data-corner="Merkmal" data-total-label="Summe"
      data-columns="$K$|$\overline{K}$" data-rows="$T$|$\overline{T}$"
      data-values="0,15|0,1|0,25 ; 0,05|0,7|0,75 ; 0,2|0,8|1"></div>
+<!-- "?" vor einem Wert (Tafel, Baum, Venn-Werte): verdeckt bis zum Klick; "!" (nur Tafel): rot umrandet; data-uncover="all": alle Werte verdeckt -->
+<div class="fourfield" data-values="?0,15|?!0,1|0,25 ; …" …></div>
 ```
 
 Venn-Modi: `none`, `complement`, `intersection`, `union`, `difference`, `partition`, `probability`. Elemente (Zahlen) zeichnen alle Modi außer `probability`; es gibt keinen eigenen Modus `elements`, `none` mit Elementlisten leistet das.
@@ -66,7 +69,7 @@ Venn-Modi: `none`, `complement`, `intersection`, `union`, `difference`, `partiti
 - **`display` am `<section>`:** reveal.js setzt `display` der aktuellen Folie inline, ein Grid/Flex direkt am `<section>` (Vorlagen) kann dadurch überschrieben werden. Vor dem Bauen im Browser prüfen; Rückfall: innerer Wrapper `<div class="layout-…">`.
 - **Tasten mit Modifikator:** reveal.js ignoriert sie (siehe Tasten in `reveal-uncover`). Strg-Kombinationen sind außerdem Browserbelegungen (Strg+U Quelltext, Strg+V Einfügen); deshalb Shift.
 - `renderFormulas` ruft `Reveal.layout()` nur auf, wenn neue Formeln entstanden sind. Ein `layout()` bei jedem `slidechanged` löst eine Endlosschleife aus.
-- Diagramme entstehen einmal bei der Initialisierung. Später eingefügte Elemente zeichnet `Reveal.getPlugin('probability').render(scope)`, verdecken kann man sie mit `Reveal.getPlugin('uncover').cover(scope)`.
+- Diagramme entstehen einmal bei der Initialisierung. Später eingefügte Elemente zeichnet `Reveal.getPlugin('probability').render(scope)`, `render` verdeckt die mit `?` markierten Werte selbst, wenn `reveal-uncover` geladen ist; handgeschriebene `.uncover`-Elemente verdeckt man mit `Reveal.getPlugin('uncover').cover(scope)`.
 
 ## Prüfen
 
@@ -76,16 +79,17 @@ Kein Test-Framework, nur Headless-Chrome (Umgebungsvariable `CHROME` überschrei
 test/run.sh     # Exit-Code 0 = alles in Ordnung
 ```
 
-`test/run.sh` führt drei Prüfungen aus:
+`test/run.sh` führt drei Prüfungen aus (`test/run.sh --update-golden` erzeugt zusätzlich den Golden Master der Präsentation neu):
 
-1. **`test/index.html`** (derzeit 84 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
-   - *uncover:* Startzustand, Klick (auch auf Kindelemente und SVG), API `cover`/`uncover`/`toggle` mit Bereich, später eingefügte Elemente, Taste und Beschreibung, `key: false`, Listener nur am Reveal-Element, CSS (Blur).
+1. **`test/index.html`** (derzeit 97 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
+   - *uncover:* Startzustand, Klick (auch auf Kindelemente und SVG), API `cover`/`uncover`/`toggle` mit Bereich, später eingefügte Elemente, Tasten `U`/`V`/`Shift+U`/`Shift+V` (Folie gegen alles, andere Modifikatoren, Eingabefelder, Konfiguration, `false`, Hilfetext), Listener nur am Reveal-Element, CSS (Blur).
+   - *Aufdeckbare/hervorgehobene Werte:* `?` und `!` in Tafel, Baum und Venn, `data-uncover="all"`, Escaping, mit und ohne `reveal-uncover`, späteres `render(scope)`, CSS.
    - *Venn:* alle sieben Modi (Füllschichten, hervorgehobene Elemente, clipPath-IDs eindeutig), Werte, Namen, `mini`, Sets (Namen, Elemente, feste Positionen, Vorrang der Attribute, Teilpositionen, unbekanntes Set), automatische Platzierung (liegt im Bereich, Randabstand, keine Überlappung, Abstand zu Beschriftungen, zu viele Elemente), Escaping, unbekannter Modus, `aria-label`.
    - *Baum:* Struktur, Überstriche nur an Gegenereignissen, Brüche und Dezimalzahlen, Beschriftung neben dem Ast, ungültige Eingaben, Escaping.
    - *Vierfeldertafel:* Struktur und Zellreihenfolge, Standardwerte, Leerraum, `$…$`-sicheres Trennen, LaTeX unverändert, Text statt Markup, ungültige Eingaben.
    - *Plugin-API:* unabhängige Instanzen, `render()` idempotent, mit Bereich, nachträglich, nach Attributänderung, CSS-Variablen.
 2. **`demo.html`:** keine Konsolenmeldungen, erwartete Anzahl Diagramme, Lösung verdeckt.
-3. **Präsentation** (nur wenn die Datei vorhanden ist, sie liegt nicht im Repository): keine Konsolenmeldungen (außer `fsfx`), 14 Venn-Diagramme, 1 Baum, 2 Tafeln, alle 45 Lösungen verdeckt, keine KaTeX-Fehler.
+3. **Präsentation** (nur wenn die Datei vorhanden ist, sie liegt nicht im Repository): `run.sh` testet eine Kopie, in der die Plugins lokal geladen werden (jsDelivr-Adressen werden ersetzt, `<base>` für relative Pfade). Geprüft werden: keine Konsolenmeldungen (außer `fsfx`), alle Diagramme gebaut, alle Lösungen verdeckt, keine KaTeX-Fehler und der **Golden Master** `test/golden/deck.json`: Folientitel und je Folie Anzahl Venn/Baum/Tafel/Lösungen. Ändert sich die HTML-Datei absichtlich, `test/run.sh --update-golden` ausführen und die Differenz prüfen (`diff` zeigt der Lauf vorher); die Zahlen stehen nicht mehr in `run.sh`.
 
 **Neue Funktion = neuer Test.** Bei Änderungen an einem Plugin zuerst `test/run.sh`, bei neuen Attributen oder Modi Tests und Kopfkommentar des Plugins ergänzen. Fehlt noch: der Doppeltipp-Zoom von `reveal-touchzoom` (braucht echte Touch-Ereignisse; nur Lade-Smoke-Test).
 
@@ -107,8 +111,8 @@ google-chrome-stable --headless=new --no-sandbox --disable-gpu --hide-scrollbars
 
 Reihenfolge, je Schritt eigene Commits mit Tests und Kopfkommentar-Update (`test/run.sh` grün vor jedem Commit):
 
-1. ~~**Tasten** (`reveal-uncover`)~~ erledigt (Tests: Folie vs. Gesamt, Modifikatoren, Eingabefelder, `false`, Hilfetext). Offen: Hinweis auf Folie 1 des Decks und `uncover: { keyDescription }` in der HTML-Datei anpassen.
-2. **Aufdeckbare Diagrammwerte** (`reveal-probability`): `?`-Markierung in Baum, Tafel (inkl. Überschriften) und Venn-Modus `probability`; Tests: Klasse nur mit `?`, Text ohne `?`, ohne Uncover-Plugin kein Fehler, mit Plugin Startzustand `covered`, Klick auf SVG-Wert und Tafelzelle, `render(scope)` verdeckt Nachgeladenes. Gegebenenfalls Regel für `g.uncover` in `reveal-uncover.css`.
+1. ~~**Tasten** (`reveal-uncover`)~~ erledigt (Tests: Folie vs. Gesamt, Modifikatoren, Eingabefelder, `false`, Hilfetext). Folie 1 und `uncover.descriptions` im Deck sind angepasst.
+2. ~~**Aufdeckbare Diagrammwerte** (`reveal-probability`)~~ erledigt (`?`, `!`, `data-uncover="all"`). Die Tafel auf Folie 12 des Decks ist darauf umgestellt. Offen: Die veröffentlichte Plugin-Version (jsDelivr) kennt `?`/`!` noch nicht; für Moodle neue Versionsnummer veröffentlichen und im Deck eintragen.
 3. **Vorlagen und Referenz:** `reveal-layouts.css`, `docs/reference.md`, `docs/build.sh`; Smoke-Test je Vorlage (erwartete Spalten, CSS-Variablen wirken). Pro Vorlage in der Referenz: Zweck, Markup-Beispiel, Variablen. Erst `display`-Frage am `<section>` klären.
 
 ## Git

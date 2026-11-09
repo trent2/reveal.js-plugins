@@ -2,11 +2,16 @@
 # Runs all tests with headless Chrome. Exit code 0 = everything passed.
 #
 #   test/run.sh
+#   test/run.sh --update-golden     regenerate the golden master of the presentation
 #
 # 1. test/index.html     unit tests (fake deck) and integration test (real reveal.js)
 # 2. demo.html           loads without console warnings; all diagrams are built
-# 3. the presentation    (only if present; not in the repository) loads without console warnings; expected number of diagrams, all solutions covered
+# 3. the presentation    (only if present; not in the repository) loads without console warnings, all diagrams built,
+#                        all solutions covered, per-slide summary equals the golden master test/golden/deck.json.
+#                        After an intended change of the presentation: test/run.sh --update-golden
 set -u
+UPDATE_GOLDEN=0
+[ "${1:-}" = "--update-golden" ] && UPDATE_GOLDEN=1
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$PWD
 CHROME=${CHROME:-google-chrome-stable}
@@ -63,24 +68,40 @@ print('  OK: 2 Venn diagrams, 1 tree, 1 four-field table, 1 covered solution')
 EOF
 
 echo "== Verknuepfen-Ereignisse.html"
+GOLDEN=test/golden/deck.json
 if [ ! -f Verknuepfen-Ereignisse.html ]; then echo "  skipped (file not present; it is not part of the repository)"; else
-load "file://$ROOT/Verknuepfen-Ereignisse.html" "$TMP/deck"
+# The presentation may load the plugins from jsDelivr (pinned version) or from relative paths;
+# test it with the local files in both cases (copy in $TMP, <base> for the relative paths).
+sed -E -e "s#https://cdn\.jsdelivr\.net/gh/trent2/reveal\.js-plugins@[0-9.]+/#file://$ROOT/#g" \
+       -e "0,/<head>/s##<head><base href=\"file://$ROOT/\">#" Verknuepfen-Ereignisse.html > "$TMP/deck.html"
+load "file://$TMP/deck.html" "$TMP/deck"
 msgs=$(console_messages "$TMP/deck")
 [ -z "$msgs" ] || { echo "  FAIL console messages:"; echo "$msgs" | sed 's/^/    /'; status=1; }
-python3 -I - "$TMP/deck.dom" <<'EOF' || status=1
-import re, sys
-dom = open(sys.argv[1], encoding='utf-8').read()
-counts = {
-    'venn': (len(re.findall(r'<div class="venn[^"]*"[^>]*><svg', dom)), 14),
-    'tree': (len(re.findall(r'<div class="tree"[^>]*><svg', dom)), 1),
-    'fourfield': (len(re.findall(r'<div class="fourfield"[^>]*><table', dom)), 2),
-}
-bad = {k: v for k, v in counts.items() if v[0] != v[1]}
-covered, total = len(re.findall(r'class="uncover[^"]*covered', dom)), len(re.findall(r'class="uncover', dom))
-if bad or covered != total or total != 45 or 'katex-error' in dom:
-    print('  FAIL (found, expected):', bad, f'covered {covered}/{total}'); sys.exit(1)
-print('  OK: 14 Venn diagrams, 1 tree, 2 four-field tables, 45 covered solutions')
-EOF
+python3 -I test/deck-snapshot.py "$TMP/deck.dom" > "$TMP/deck.json"
+python3 -I - "$TMP/deck.json" <<'PYEOF' || status=1
+import json, sys
+data = json.load(open(sys.argv[1], encoding='utf-8'))
+bad = [s for s in data['slides'] if s['built'] != s['venn'] + s['tree'] + s['fourfield'] or s['covered'] != s['uncover']]
+for s in bad:
+    print(f"  FAIL slide {s['slide']} ({s['title']}): {s['built']}/{s['venn'] + s['tree'] + s['fourfield']} diagrams built, {s['covered']}/{s['uncover']} solutions covered")
+if data['katex_errors']:
+    print('  FAIL KaTeX errors:', data['katex_errors'])
+sys.exit(1 if bad or data['katex_errors'] else 0)
+PYEOF
+if [ "$UPDATE_GOLDEN" = 1 ]; then
+  mkdir -p test/golden && cp "$TMP/deck.json" "$GOLDEN" && echo "  golden master written: $GOLDEN"
+elif [ ! -f "$GOLDEN" ]; then
+  echo "  FAIL no golden master; create it with: test/run.sh --update-golden"; status=1
+elif diff -u "$GOLDEN" "$TMP/deck.json" > "$TMP/golden.diff"; then
+  python3 -I - "$GOLDEN" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1], encoding='utf-8'))['slides']
+total = lambda key: sum(s[key] for s in d)
+print(f"  OK: matches the golden master ({len(d)} slides, {total('venn')} Venn, {total('tree')} trees, {total('fourfield')} four-field tables, {total('uncover')} solutions)")
+PYEOF
+else
+  echo "  FAIL differs from the golden master (intended? then run: test/run.sh --update-golden)"; sed 's/^/    /' "$TMP/golden.diff"; status=1
+fi
 fi
 
 [ $status -eq 0 ] && echo "ALL OK" || echo "FAILED"

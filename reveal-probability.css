@@ -20,6 +20,7 @@
  *   --probability-table-border      borders of the four-field table
  *   --probability-table-head        background of the headings of the four-field table
  *   --probability-table-inner       background of the four inner fields
+ *   --probability-table-highlight   frame of a highlighted table cell ("!" before the value)
  *
  * The SVG text inherits the font of the slides.
  */
@@ -38,6 +39,7 @@
   --probability-text: #222;
   --probability-element-text: #333;
   --probability-line: #222;
+  --probability-table-highlight: #C01C28;
   --probability-table-border: #C9D6E4;
   --probability-table-head: #EEF4FA;
   --probability-table-inner: #EDF3FB;
@@ -178,6 +180,10 @@
 
 .reveal .fourfield td.inner {
   background: var(--probability-table-inner);
+}
+
+.reveal .fourfield td.highlight {
+  box-shadow: inset 0 0 0 4px var(--probability-table-highlight);
 }
 
 /* reveal.js themes remove the bottom border of the last row; keep it. */

@@ -92,6 +92,22 @@
  * API (Reveal.getPlugin('probability')):
  *   render(scope = .reveal)    (re)draw all diagrams inside scope
  *
+ * ---------------------------------------------------------------------------------------
+ * Covered and highlighted values
+ *
+ *   A "?" in front of a value (probability tree, four-field table, mode probability of the Venn
+ *   diagram) makes it a solution that is covered until it is clicked:
+ *       data-values="?0,15|0,1|?0,25 ; …"     data-probabilities="?1/6|5/6 ; …"
+ *   The value gets the class "uncover" (table: a <span class="uncover block"> inside the cell;
+ *   SVG: a <g class="uncover"> around the text or fraction). data-uncover="all" on the diagram
+ *   covers all of its values (in the table also headings only with an explicit "?").
+ *   A "!" in front of a table cell adds the class "highlight" to the cell (red frame); it can be
+ *   combined with "?" ("?!0,23"). "!" has no effect in the tree and the Venn diagram.
+ *
+ *   The plugin does not depend on reveal-uncover. It only sets the class and, if the plugin is
+ *   loaded, asks it to cover the new elements (Reveal.getPlugin('uncover').cover(diagram)).
+ *   Without reveal-uncover the values simply stay visible.
+ *
  * Colours, line widths and fonts are CSS; see reveal-probability.css.
  */
 (function () {
@@ -100,6 +116,13 @@
   const warn = (...args) => console.warn('[reveal-probability]', ...args);
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const splitPlain = (text, separator) => text.split(separator).map(s => s.trim()).filter(Boolean);
+
+  // Flags in front of a value: "?" = covered until clicked (class "uncover", see reveal-uncover),
+  // "!" = highlighted. data-uncover="all" on the diagram covers every value.
+  function parseFlags(text, coverAll = false) {
+    const [, flags, rest] = /^([?!]*)\s*([\s\S]*)$/.exec(text);
+    return { text: rest, cover: coverAll || flags.includes('?'), highlight: flags.includes('!') };
+  }
 
   // Split at a separator but not inside $…$; a backslash keeps the next character from counting.
   function splitOutsideMath(text, separator) {
@@ -220,7 +243,11 @@
 
       if (values) {
         const given = host.dataset.values ? host.dataset.values.split('|').map(s => s.trim()) : [];
-        given.slice(0, VALUE_SPOTS.length).forEach((value, i) => { svg += text(...VALUE_SPOTS[i], 'venn-value', value); });
+        given.slice(0, VALUE_SPOTS.length).forEach((value, i) => {
+          const { text: shown, cover } = parseFlags(value, host.dataset.uncover === 'all');
+          const t = text(...VALUE_SPOTS[i], 'venn-value', shown);
+          svg += cover ? `<g class="uncover">${t}</g>` : t;
+        });
       } else {
         for (const region of REGION_NAMES) {
           const given = host.dataset[region];
@@ -271,12 +298,15 @@
     ];
 
     // a/b as a stacked fraction around (x, y), other text on one line
-    const label = (x, y, p) => {
+    const label = (x, y, value) => {
+      const { text: p, cover } = parseFlags(value, host.dataset.uncover === 'all');
       const [numerator, denominator] = p.split('/');
-      if (denominator === undefined) return `<text x="${x}" y="${y}" dy=".35em" class="tree-probability">${esc(p)}</text>`;
-      return `<text x="${x}" y="${y - 5}" class="tree-probability">${esc(numerator)}</text>`
-           + `<line x1="${x - 11}" y1="${y}" x2="${x + 11}" y2="${y}" class="tree-fraction-bar"/>`
-           + `<text x="${x}" y="${y + 18}" class="tree-probability">${esc(denominator)}</text>`;
+      const svg = denominator === undefined
+        ? `<text x="${x}" y="${y}" dy=".35em" class="tree-probability">${esc(p)}</text>`
+        : `<text x="${x}" y="${y - 5}" class="tree-probability">${esc(numerator)}</text>`
+        + `<line x1="${x - 11}" y1="${y}" x2="${x + 11}" y2="${y}" class="tree-fraction-bar"/>`
+        + `<text x="${x}" y="${y + 18}" class="tree-probability">${esc(denominator)}</text>`;
+      return cover ? `<g class="uncover">${svg}</g>` : svg;
     };
 
     let svg = `<svg viewBox="0 0 460 245" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(config.labels?.tree ?? 'Tree diagram')}">`;
@@ -307,12 +337,19 @@
       return;
     }
     const total = host.dataset.totalLabel ?? 'Σ';
-    const cell = (tag, content, className) => {
+    const cell = (tag, content, className, coverAll = false) => {
+      const { text, cover, highlight } = parseFlags(content, coverAll);
       const el = document.createElement(tag);
-      el.textContent = content;
-      if (className) el.className = className;
+      if (cover) {
+        const span = document.createElement('span');
+        span.className = 'uncover block';
+        span.textContent = text;
+        el.append(span);
+      } else el.textContent = text;
+      el.className = [className, highlight && 'highlight'].filter(Boolean).join(' ');
       return el;
     };
+    const all = host.dataset.uncover === 'all';
     const row = (...cells) => {
       const tr = document.createElement('tr');
       tr.append(...cells);
@@ -322,9 +359,9 @@
     const table = document.createElement('table');
     table.append(
       row(cell('th', host.dataset.corner ?? ''), cell('th', columns[0]), cell('th', columns[1]), cell('th', total)),
-      row(cell('th', rows[0]), cell('td', values[0][0], 'inner'), cell('td', values[0][1], 'inner'), cell('td', values[0][2])),
-      row(cell('th', rows[1]), cell('td', values[1][0], 'inner'), cell('td', values[1][1], 'inner'), cell('td', values[1][2])),
-      row(cell('th', total), cell('td', values[2][0]), cell('td', values[2][1]), cell('td', values[2][2]))
+      row(cell('th', rows[0]), cell('td', values[0][0], 'inner', all), cell('td', values[0][1], 'inner', all), cell('td', values[0][2], '', all)),
+      row(cell('th', rows[1]), cell('td', values[1][0], 'inner', all), cell('td', values[1][1], 'inner', all), cell('td', values[1][2], '', all)),
+      row(cell('th', total), cell('td', values[2][0], '', all), cell('td', values[2][1], '', all), cell('td', values[2][2], '', all))
     );
     host.replaceChildren(table);
   }
@@ -334,15 +371,20 @@
   // ======================================================================================
 
   window.RevealProbability = () => {
-    let config = {};
+    let config = {}, deck = null;
 
     function render(scope = document) {
+      const hosts = scope.querySelectorAll('.venn, .tree, .fourfield');
       scope.querySelectorAll('.venn').forEach(host => drawVenn(host, config));
       scope.querySelectorAll('.tree').forEach(host => drawTree(host, config));
       scope.querySelectorAll('.fourfield').forEach(host => drawFourField(host));
+      // Cover the marked values if reveal-uncover is loaded; without it they stay visible.
+      const uncover = deck?.getPlugin?.('uncover');
+      if (uncover) hosts.forEach(host => { if (host.querySelector('.uncover')) uncover.cover(host); });
     }
 
-    function init(deck) {
+    function init(revealDeck) {
+      deck = revealDeck;
       config = deck.getConfig().probability || {};
       render(deck.getRevealElement());
     }

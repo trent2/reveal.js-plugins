@@ -16,7 +16,7 @@
 <div class="reveal" id="integration" style="height:300px"><div class="slides"><section>
   <span class="uncover" id="i-a">a</span> <span class="uncover" id="i-b">b</span>
   <div class="venn" id="i-venn" data-mode="union" data-left-only="1" data-both="2" data-right-only="3"></div>
-  <div class="fourfield" id="i-ff" data-columns="a|b" data-rows="c|d" data-values="1|2|3 ; 4|5|6 ; 7|8|9"></div>
+  <div class="fourfield" id="i-ff" data-columns="a|b" data-rows="c|d" data-values="?1|2|3 ; 4|5|6 ; 7|8|9"></div>
 </section></div></div>
 
 <pre id="result"></pre>
@@ -674,6 +674,105 @@
   });
 
   // ======================================================================
+  // Covered and highlighted values (coupling with reveal-uncover only via the class "uncover")
+  // ======================================================================
+  // Fake deck with the real uncover plugin, like reveal.js's getPlugin
+  function probabilityWithUncover(html) {
+    const root = container(html);
+    const uncover = RevealUncover();
+    const deck = { getConfig: () => ({}), getRevealElement: () => root, getPlugin: id => id === 'uncover' ? uncover : undefined,
+                   addKeyBinding() {}, getCurrentSlide: () => root };
+    uncover.init(deck);                                   // like reveal.js: plugins are initialised in order
+    const probability = RevealProbability();
+    probability.init(deck);
+    return { root, probability, uncover };
+  }
+
+  test('covered values: four-field table wraps marked values in span.uncover.block', () => {
+    const host = fourfield('data-columns="a|b" data-rows="c|d" data-values="?1|2|3 ; 4|?5|6 ; 7|8|?9"');
+    const spans = $$(host, 'td .uncover.block');
+    eq(spans.map(text), ['1', '5', '9']);
+    eq(spans.map(el => el.parentNode.tagName), ['TD', 'TD', 'TD']);
+    eq($$(host, 'td').map(td => td.textContent).join(' '), '1 2 3 4 5 6 7 8 9', 'the "?" is not shown');
+    eq($$(host, 'td.inner').length, 4, 'cell classes are kept');
+  });
+
+  test('covered values: headings can be marked, too', () => {
+    const host = fourfield('data-columns="?a|b" data-rows="c|d" data-values="1|2|3 ; 4|5|6 ; 7|8|9"');
+    eq($$(host, 'th .uncover').map(text), ['a']);
+  });
+
+  test('covered values: data-uncover="all" marks all values of the table, not the headings', () => {
+    const host = fourfield('data-uncover="all" data-columns="a|b" data-rows="c|d" data-values="1|2|3 ; 4|5|6 ; 7|8|9"');
+    eq($$(host, 'td .uncover').length, 9);
+    eq($$(host, 'th .uncover').length, 0);
+  });
+
+  test('highlighted cells: "!" adds the class, combined with "?" and without changing the text', () => {
+    const host = fourfield('data-columns="a|b" data-rows="c|d" data-values="!1|?!2|3 ; 4|5|6 ; 7|8|9"');
+    const cells = $$(host, 'td');
+    eq(cells.filter(td => td.classList.contains('highlight')).map(td => td.textContent), ['1', '2']);
+    eq($$(host, 'td .uncover').map(text), ['2']);
+  });
+
+  test('covered values: no marks, no class (default unchanged)', () => {
+    eq($$(fourfield('data-columns="a|b" data-rows="c|d" data-values="1|2|3 ; 4|5|6 ; 7|8|9"'), '.uncover, .highlight').length, 0);
+    eq($$(tree('data-probabilities="1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"'), '.uncover').length, 0);
+    eq($$(venn('data-mode="probability" data-values="1|2|3|4"'), '.uncover').length, 0);
+  });
+
+  test('covered values: tree groups the fraction (both numbers and the bar) in g.uncover', () => {
+    const host = tree('data-probabilities="?1/6|5/6 ; 1/3|?0,6 ; 4/5|1/5"');
+    const groups = $$(host, 'g.uncover');
+    eq(groups.length, 2);
+    eq(groups.map(g => $$(g, 'text').map(text)), [['1', '6'], ['0,6']]);
+    eq($$(groups[0], 'line.tree-fraction-bar').length, 1);
+    eq($$(host, 'text.tree-probability').length, 11, 'same labels as without marks (five fractions, one decimal)');
+  });
+
+  test('covered values: Venn mode probability', () => {
+    const host = venn('data-mode="probability" data-values="?1|2|?3|4"');
+    eq($$(host, 'g.uncover').map(g => text($(g, 'text'))), ['1', '3']);
+    eq($$(venn('data-mode="probability" data-uncover="all" data-values="1|2|3|4"'), 'g.uncover').length, 4);
+  });
+
+  test('covered values: texts stay escaped', () => {
+    const host = tree('data-probabilities="?<b>|2 ; 1|2 ; 1|2"');
+    eq($$(host, 'b').length, 0);
+    eq(text($(host, 'g.uncover text')), '<b>');
+  });
+
+  test('covered values: with reveal-uncover loaded the marked values start covered', () => {
+    const { root } = probabilityWithUncover('<div class="fourfield" data-columns="a|b" data-rows="c|d" data-values="?1|2|3 ; 4|5|6 ; 7|8|9"></div>'
+      + '<div class="tree" data-probabilities="?1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"></div>');
+    eq($$(root, '.uncover.covered').length, 2);
+  });
+
+  test('covered values: values uncovered by the user stay so when another diagram is drawn later', () => {
+    const { root, probability } = probabilityWithUncover('<div id="a"><div class="tree" data-probabilities="?1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"></div></div>');
+    $(root, '.uncover').dispatchEvent(new MouseEvent('click', { bubbles: true }));   // SVG elements have no click()
+    root.insertAdjacentHTML('beforeend', '<div id="b"><div class="fourfield" data-columns="a|b" data-rows="c|d" data-values="?1|2|3 ; 4|5|6 ; 7|8|9"></div></div>');
+    probability.render($(root, '#b'));
+    eq($$(root, '#a .uncover.covered').length, 0, 'earlier value untouched');
+    eq($$(root, '#b .uncover.covered').length, 1, 'new value covered');
+  });
+
+  test('covered values: without reveal-uncover nothing breaks and the values stay visible', () => {
+    const root = container('<div class="tree" data-probabilities="?1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"></div>');
+    const probability = RevealProbability();
+    probability.init({ getConfig: () => ({}), getRevealElement: () => root, getPlugin: () => undefined });
+    eq([$$(root, '.uncover').length, $$(root, '.covered').length], [1, 0]);
+  });
+
+  test('covered values: styles (marked table cell is blurred when covered, highlight is a frame)', () => {
+    const { root } = probabilityWithUncover('<div class="fourfield" data-columns="a|b" data-rows="c|d" data-values="?!1|2|3 ; 4|5|6 ; 7|8|9"></div>');
+    root.className = 'reveal';
+    assert(getComputedStyle($(root, 'td .uncover')).filter.includes('blur'), 'covered cell is blurred');
+    assert(getComputedStyle($(root, 'td.highlight')).boxShadow !== 'none', 'highlight frame');
+    assert(getComputedStyle($(root, 'td .uncover')).display === 'block');
+  });
+
+  // ======================================================================
   // Integration with the real reveal.js
   // ======================================================================
   const deck = new Reveal(document.getElementById('integration'), {
@@ -695,17 +794,25 @@
       a.click();
       assert(!a.classList.contains('covered') && b.classList.contains('covered'));
     });
+    await testAsync('integration: a marked table value is covered by reveal-uncover and uncovers on click', () => {
+      const value = document.querySelector('#i-ff td .uncover');
+      assert(value && value.classList.contains('covered'), 'covered at start');
+      eq(value.textContent, '1');
+      value.click();
+      assert(!value.classList.contains('covered'));
+      value.click();
+    });
     await testAsync('integration: keys U/V (slide) and Shift+U/Shift+V (all) work through reveal.js', () => {
       const covered = () => document.querySelectorAll('#integration .uncover.covered').length;
       const press = (key, keyCode, shiftKey = false) =>
         document.dispatchEvent(new KeyboardEvent('keydown', { key, keyCode, which: keyCode, shiftKey, bubbles: true }));
       deck.getPlugin('uncover').uncover();
       press('v', 86);
-      eq(covered(), 2, 'V covers the current slide');
+      eq(covered(), 3, 'V covers the current slide');
       press('u', 85);
       eq(covered(), 0, 'U uncovers it');
       press('V', 86, true);
-      eq(covered(), 2, 'Shift+V covers all');
+      eq(covered(), 3, 'Shift+V covers all');
       press('U', 85, true);
       eq(covered(), 0, 'Shift+U uncovers all');
       deck.toggleHelp(true);

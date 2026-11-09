@@ -29,6 +29,20 @@ console_messages() {
   grep -o 'CONSOLE:[0-9]*\] ".*' "$1.log" | grep -v 'fsfx' || true
 }
 
+# every diagram built, every solution covered, no KaTeX errors: $1 = snapshot json
+check_snapshot() {
+  python3 -I - "$1" <<'PYEOF'
+import json, sys
+data = json.load(open(sys.argv[1], encoding='utf-8'))
+bad = [s for s in data['slides'] if s['built'] != s['venn'] + s['tree'] + s['fourfield'] or s['covered'] != s['uncover']]
+for s in bad:
+    print(f"  FAIL slide {s['slide']} ({s['title']}): {s['built']}/{s['venn'] + s['tree'] + s['fourfield']} diagrams built, {s['covered']}/{s['uncover']} solutions covered")
+if data['katex_errors']:
+    print('  FAIL KaTeX errors:', data['katex_errors'])
+sys.exit(1 if bad or data['katex_errors'] else 0)
+PYEOF
+}
+
 status=0
 
 echo "== test/index.html"
@@ -67,6 +81,28 @@ if bad or covered != total or total != 1 or 'katex-error' in dom:
 print('  OK: 2 Venn diagrams, 1 tree, 1 four-field table, 1 covered solution')
 EOF
 
+echo "== demo-layouts.html"
+load "file://$ROOT/demo-layouts.html" "$TMP/layouts"
+msgs=$(console_messages "$TMP/layouts")
+[ -z "$msgs" ] || { echo "  FAIL console messages:"; echo "$msgs" | sed 's/^/    /'; status=1; }
+python3 -I test/deck-snapshot.py "$TMP/layouts.dom" > "$TMP/layouts.json"
+check_snapshot "$TMP/layouts.json" && echo "  OK: no console messages, diagrams built, solutions covered" || status=1
+
+echo "== docs/reference.md"
+python3 -I - <<'PYEOF' || status=1
+import re, sys
+css = open('reveal-layouts.css', encoding='utf-8').read()
+doc = open('docs/reference.md', encoding='utf-8').read()
+rules = re.sub(r'/\*.*?\*/', '', css, flags=re.S)                      # without comments
+names = set(re.findall(r'\.(layout-[a-z-]+)', rules)) | set(re.findall(r'(--layout-[a-z-]+)', css))
+missing = sorted(n for n in names if n not in doc)
+unknown = sorted(n for n in set(re.findall(r'`\.?((?:--)?layout-[a-z-]+)`', doc)) if n not in names)
+if missing: print('  FAIL not documented:', ', '.join(missing))
+if unknown: print('  FAIL documented but not in the CSS:', ', '.join(unknown))
+if missing or unknown: sys.exit(1)
+print(f'  OK: {len(names)} classes and variables of reveal-layouts.css are documented')
+PYEOF
+
 echo "== Verknuepfen-Ereignisse.html"
 GOLDEN=test/golden/deck.json
 if [ ! -f Verknuepfen-Ereignisse.html ]; then echo "  skipped (file not present; it is not part of the repository)"; else
@@ -78,16 +114,7 @@ load "file://$TMP/deck.html" "$TMP/deck"
 msgs=$(console_messages "$TMP/deck")
 [ -z "$msgs" ] || { echo "  FAIL console messages:"; echo "$msgs" | sed 's/^/    /'; status=1; }
 python3 -I test/deck-snapshot.py "$TMP/deck.dom" > "$TMP/deck.json"
-python3 -I - "$TMP/deck.json" <<'PYEOF' || status=1
-import json, sys
-data = json.load(open(sys.argv[1], encoding='utf-8'))
-bad = [s for s in data['slides'] if s['built'] != s['venn'] + s['tree'] + s['fourfield'] or s['covered'] != s['uncover']]
-for s in bad:
-    print(f"  FAIL slide {s['slide']} ({s['title']}): {s['built']}/{s['venn'] + s['tree'] + s['fourfield']} diagrams built, {s['covered']}/{s['uncover']} solutions covered")
-if data['katex_errors']:
-    print('  FAIL KaTeX errors:', data['katex_errors'])
-sys.exit(1 if bad or data['katex_errors'] else 0)
-PYEOF
+check_snapshot "$TMP/deck.json" || status=1
 if [ "$UPDATE_GOLDEN" = 1 ]; then
   mkdir -p test/golden && cp "$TMP/deck.json" "$GOLDEN" && echo "  golden master written: $GOLDEN"
 elif [ ! -f "$GOLDEN" ]; then

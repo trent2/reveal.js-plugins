@@ -1,0 +1,320 @@
+/*!
+ * reveal-layouts.css – slide templates for reveal.js (CSS only, no script)
+ *
+ * Put a template class on a <section>; the children take their place by class name:
+ *
+ *   <link rel="stylesheet" href=".../reveal-layouts.css">
+ *
+ *   <section class="layout-side">
+ *     <h2>Heading</h2>
+ *     <div class="visual">…diagram…</div>
+ *     <div class="text">…text, boxes…</div>
+ *   </section>
+ *
+ * Templates (class on <section>)      children
+ *   layout-title          title slide        h1, .subtitle, .hint
+ *   layout-section        chapter slide      h1, .subtitle
+ *   layout-content        heading + content  h2, anything
+ *   layout-two-columns    two equal columns  h2, .col, .col
+ *   layout-side           visual left, text right    h2, .visual, .text
+ *   layout-task           task slide, one column     h2, .layout-box, .part, .item
+ *   layout-task-aside     task slide with a column on the right   h2, .task, .aside
+ *   layout-summary        heading + panel with table   h2, .layout-panel
+ *
+ * Building blocks (usable anywhere)
+ *   layout-box            framed text box; with .box-title for a heading line
+ *   layout-box-definition box in the second colour (definitions)
+ *   layout-panel          panel with a coloured frame; .box-title inside
+ *   layout-legend         row of colour keys; .layout-chip is one colour swatch
+ *   .part, .item/.label   in task templates: sub-task heading, labelled line
+ *
+ * Dark templates (title, section) need a dark slide background, set it on the <section>:
+ *   data-background-color="#1F4E7A"
+ *
+ * Custom properties (optional, e.g. on :root or on a single <section>):
+ *   --layout-primary          box frame and title line, summary table headings #1F4E7A
+ *   --layout-accent           panel frame, table heading rule                  #0A84C1
+ *   --layout-definition       definition box                                   #6A4C93
+ *   --layout-muted            small, subdued text, swatch outline              #5B6779
+ *   --layout-box-bg           background of a box                              #EEF4FA
+ *   --layout-definition-bg    background of a definition box                   #F3EFF8
+ *   --layout-panel-bg         background of a panel                            #EDF3FB
+ *   --layout-rule             thin lines in the summary table                  #C9D6E4
+ *   --layout-on-dark          text colour on dark slides                       #fff
+ *   --layout-gap              space between columns                            34px
+ *   --layout-visual-width     layout-side: width of the left column            640px
+ *   --layout-aside-width      layout-task-aside: width of the right column     440px
+ *   --layout-label-width      .item: width of the label column                 auto
+ *   --layout-text-size        text column of layout-side, summary table        .58em
+ *   --layout-task-size        text of the task templates                       .6em
+ *
+ * reveal.js sets "display: block" on every <section> itself, so the grid and flex templates
+ * below need "!important"; slides that reveal.js hides with "display: none" stay hidden.
+ */
+
+:root {
+  --layout-primary: #1F4E7A;
+  --layout-accent: #0A84C1;
+  --layout-definition: #6A4C93;
+  --layout-muted: #5B6779;
+  --layout-box-bg: #EEF4FA;
+  --layout-definition-bg: #F3EFF8;
+  --layout-panel-bg: #EDF3FB;
+  --layout-rule: #C9D6E4;
+  --layout-on-dark: #fff;
+  --layout-gap: 34px;
+  --layout-visual-width: 640px;
+  --layout-aside-width: 440px;
+  --layout-label-width: auto;
+  --layout-text-size: .58em;
+  --layout-task-size: .6em;
+}
+
+/* ---------- Building blocks ---------- */
+
+.reveal .layout-box {
+  background: var(--layout-box-bg);
+  border-left: 6px solid var(--layout-primary);
+  border-radius: 4px 12px 12px 4px;
+  padding: .6em .9em;
+  text-align: left;
+  font-size: .9em;
+}
+
+.reveal .layout-box p {
+  margin: .35em 0;
+}
+
+.reveal .layout-box .box-title {
+  font-weight: 700;
+  margin: 0 0 .3em;
+}
+
+.reveal .layout-box-definition {
+  background: var(--layout-definition-bg);
+  border-left-color: var(--layout-definition);
+}
+
+.reveal .layout-box-definition .box-title {
+  color: var(--layout-definition);
+}
+
+.reveal .layout-panel {
+  background: var(--layout-panel-bg);
+  border: 3px solid var(--layout-accent);
+  border-radius: 4px;
+  padding: .5em .9em;
+  text-align: left;
+}
+
+.reveal .layout-panel .box-title {
+  font-weight: 700;
+  margin: 0 0 .2em;
+  font-size: .7em;
+}
+
+.reveal .layout-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .3em 1.1em;
+  font-size: .5em;
+  margin-top: .5em;
+}
+
+.reveal .layout-chip {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 3px;
+  border: 1px solid var(--layout-muted);
+  vertical-align: -0.2em;
+  margin-right: .35em;
+}
+
+/* ---------- Dark slides: layout-title, layout-section ---------- */
+
+.reveal .slides section.layout-title h1,
+.reveal .slides section.layout-title h2,
+.reveal .slides section.layout-title p,
+.reveal .slides section.layout-section h1,
+.reveal .slides section.layout-section h2,
+.reveal .slides section.layout-section p {
+  color: var(--layout-on-dark);
+}
+
+.reveal .slides section.layout-title .subtitle,
+.reveal .slides section.layout-section .subtitle {
+  font-size: .8em;
+  opacity: .8;
+}
+
+.reveal .slides section.layout-title .hint {
+  font-size: .65em;
+  opacity: .6;
+}
+
+.reveal .slides section.layout-section h1 {
+  font-size: 2.2em;
+}
+
+/* ---------- layout-content ---------- */
+
+.reveal .slides section.layout-content {
+  text-align: left;
+}
+
+.reveal .slides section.layout-content > h1,
+.reveal .slides section.layout-content > h2,
+.reveal .slides section.layout-content > h3 {
+  text-align: center;
+}
+
+/* ---------- Grid and flex templates ---------- */
+
+.reveal .slides section.layout-two-columns,
+.reveal .slides section.layout-side,
+.reveal .slides section.layout-task-aside {
+  display: grid !important;
+  column-gap: var(--layout-gap);
+  text-align: left;
+}
+
+.reveal .slides section.layout-task {
+  display: flex !important;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+/* hidden by reveal.js (outside the view distance): keep it hidden */
+.reveal .slides section.layout-two-columns[style*="display: none"],
+.reveal .slides section.layout-side[style*="display: none"],
+.reveal .slides section.layout-task-aside[style*="display: none"],
+.reveal .slides section.layout-task[style*="display: none"] {
+  display: none !important;
+}
+
+/* the heading spans all columns, centred */
+.reveal .slides section.layout-two-columns > h1,
+.reveal .slides section.layout-two-columns > h2,
+.reveal .slides section.layout-side > h1,
+.reveal .slides section.layout-side > h2,
+.reveal .slides section.layout-task-aside > h1,
+.reveal .slides section.layout-task-aside > h2,
+.reveal .slides section.layout-task > h1,
+.reveal .slides section.layout-task > h2 {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.reveal .slides section.layout-summary > h1,
+.reveal .slides section.layout-summary > h2 {
+  text-align: center;
+}
+
+/* layout-two-columns */
+.reveal .slides section.layout-two-columns {
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+}
+
+/* layout-side */
+.reveal .slides section.layout-side {
+  grid-template-columns: var(--layout-visual-width) 1fr;
+  align-items: center;
+}
+
+.reveal .slides section.layout-side > .text {
+  font-size: var(--layout-text-size);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reveal .slides section.layout-side .layout-box {
+  font-size: 1em;
+}
+
+/* layout-task and layout-task-aside */
+.reveal .slides section.layout-task-aside {
+  grid-template-columns: 1fr var(--layout-aside-width);
+  align-items: start;
+}
+
+.reveal .slides section.layout-task > :not(h1):not(h2):not(h3),
+.reveal .slides section.layout-task-aside > .task,
+.reveal .slides section.layout-task-aside > .aside {
+  font-size: var(--layout-task-size);
+}
+
+.reveal .slides section.layout-task-aside > .task,
+.reveal .slides section.layout-task-aside > .aside {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reveal .slides section.layout-task .layout-box,
+.reveal .slides section.layout-task-aside .layout-box {
+  font-size: 1em;
+}
+
+.reveal .slides section.layout-task .part,
+.reveal .slides section.layout-task-aside .part {
+  margin: .2em 0 .1em;
+  font-weight: 600;
+}
+
+.reveal .slides section.layout-task .item,
+.reveal .slides section.layout-task-aside .item {
+  display: grid;
+  grid-template-columns: var(--layout-label-width) 1fr;
+  gap: 0 .8em;
+  align-items: start;
+  margin: .15em 0;
+}
+
+.reveal .slides section.layout-task .item > .label,
+.reveal .slides section.layout-task-aside .item > .label {
+  white-space: nowrap;
+  font-weight: 600;
+  padding: .05em 0;
+}
+
+.reveal .slides section.layout-task .item > div,
+.reveal .slides section.layout-task-aside .item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reveal .slides section.layout-task .item p,
+.reveal .slides section.layout-task-aside .item p {
+  margin: 0;
+}
+
+/* layout-summary */
+.reveal .slides section.layout-summary table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--layout-text-size);
+}
+
+.reveal .slides section.layout-summary th {
+  text-align: left;
+  padding: .2em .6em;
+  color: var(--layout-primary);
+  border-bottom: 3px solid var(--layout-accent);
+}
+
+.reveal .slides section.layout-summary td {
+  text-align: left;
+  vertical-align: middle;
+  padding: .25em .6em;
+  border-bottom: 1.5px solid var(--layout-rule);
+}
+
+.reveal .slides section.layout-summary tr:last-child td {
+  border-bottom: none;
+}

@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>reveal-probability / reveal-uncover tests</title>
+<title>reveal-probability / reveal-uncover / reveal-layouts tests</title>
 <base href="../">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
 <link rel="stylesheet" href="reveal-uncover.css">
 <link rel="stylesheet" href="reveal-probability.css">
+<link rel="stylesheet" href="reveal-layouts.css">
 </head>
 <body>
 <!-- Unit tests build their fixtures here, outside of reveal.js -->
@@ -770,6 +771,90 @@
     assert(getComputedStyle($(root, 'td .uncover')).filter.includes('blur'), 'covered cell is blurred');
     assert(getComputedStyle($(root, 'td.highlight')).boxShadow !== 'none', 'highlight frame');
     assert(getComputedStyle($(root, 'td .uncover')).display === 'block');
+  });
+
+  // ======================================================================
+  // reveal-layouts.css (computed styles; reveal.js sets display: block on every section itself)
+  // ======================================================================
+  function slide(template, inner = '', style = 'display: block;') {
+    const root = container(`<div class="reveal" style="width:1000px"><div class="slides"><section class="${template}" style="${style}">${inner}</section></div></div>`);
+    return $(root, 'section');
+  }
+  const css = (el, property) => getComputedStyle(el)[property];
+  const columns = el => css(el, 'gridTemplateColumns').split(' ');
+
+  test('layouts: grid and flex templates win over the inline display of reveal.js', () => {
+    eq(['layout-two-columns', 'layout-side', 'layout-task-aside'].map(t => css(slide(t), 'display')), ['grid', 'grid', 'grid']);
+    eq(css(slide('layout-task'), 'display'), 'flex');
+  });
+
+  test('layouts: slides hidden by reveal.js stay hidden', () => {
+    for (const t of ['layout-two-columns', 'layout-side', 'layout-task-aside', 'layout-task'])
+      eq(css(slide(t, '', 'display: none;'), 'display'), 'none', t);
+  });
+
+  test('layouts: layout-two-columns has two equal columns, the heading spans both', () => {
+    const el = slide('layout-two-columns', '<h2>T</h2><div class="col">a</div><div class="col">b</div>');
+    const [a, b] = columns(el);
+    eq(columns(el).length, 2);
+    assert(Math.abs(parseFloat(a) - parseFloat(b)) < 2, `equal columns (${a}, ${b})`);
+    eq(css($(el, 'h2'), 'gridColumnStart') + '/' + css($(el, 'h2'), 'gridColumnEnd'), '1/-1');
+  });
+
+  test('layouts: layout-side has a left column of --layout-visual-width, text column in small type', () => {
+    const el = slide('layout-side', '<h2>T</h2><div class="visual">v</div><div class="text"><div class="layout-box">b</div></div>');
+    eq(columns(el).length, 2);
+    eq(columns(el)[0], '640px');
+    el.style.setProperty('--layout-visual-width', '300px');
+    eq(columns(el)[0], '300px');
+    assert(parseFloat(css($(el, '.text'), 'fontSize')) < parseFloat(css($(el, '.visual'), 'fontSize')), 'text column is smaller');
+    eq(css($(el, '.text'), 'display'), 'flex');
+  });
+
+  test('layouts: layout-task-aside has a right column of --layout-aside-width', () => {
+    const el = slide('layout-task-aside', '<h2>T</h2><div class="task">a</div><div class="aside">b</div>');
+    eq(columns(el).length, 2);
+    eq(columns(el)[1], '440px');
+    el.style.setProperty('--layout-aside-width', '200px');
+    eq(columns(el)[1], '200px');
+  });
+
+  test('layouts: layout-task is a column; the heading keeps its size, the rest is small', () => {
+    const el = slide('layout-task', '<h2>T</h2><div class="layout-box">b</div><div><p class="part">a)</p></div>');
+    eq(css(el, 'flexDirection'), 'column');
+    assert(parseFloat(css($(el, '.layout-box'), 'fontSize')) < parseFloat(css($(el, 'h2'), 'fontSize')), 'text smaller than heading');
+    eq(css($(el, '.part'), 'fontWeight'), '600');
+  });
+
+  test('layouts: .item has a label column', () => {
+    const el = slide('layout-task', '<div class="item"><span class="label">(1)</span><div>x</div></div>');
+    eq(columns($(el, '.item')).length, 2);
+    $(el, '.item').style.setProperty('--layout-label-width', '100px');
+    eq(columns($(el, '.item'))[0], '100px');
+  });
+
+  test('layouts: title and section templates use the light text colour', () => {
+    eq(css($(slide('layout-title', '<h1>T</h1>'), 'h1'), 'color'), 'rgb(255, 255, 255)');
+    eq(css($(slide('layout-section', '<h1>T</h1><p class="subtitle">s</p>'), 'p'), 'color'), 'rgb(255, 255, 255)');
+  });
+
+  test('layouts: boxes use the colour variables, definition box differs', () => {
+    const el = slide('layout-content', '<div class="layout-box">a</div><div class="layout-box layout-box-definition">b</div>');
+    const [box, definition] = $$(el, '.layout-box');
+    eq(css(box, 'borderLeftColor'), 'rgb(31, 78, 122)');
+    eq(css(definition, 'borderLeftColor'), 'rgb(106, 76, 147)');
+    document.documentElement.style.setProperty('--layout-primary', 'rgb(1, 2, 3)');
+    try { eq(css(box, 'borderLeftColor'), 'rgb(1, 2, 3)'); } finally { document.documentElement.style.removeProperty('--layout-primary'); }
+  });
+
+  test('layouts: summary table, panel and legend', () => {
+    const el = slide('layout-summary', '<h2>T</h2><div class="layout-panel"><p class="box-title">t</p><table><tr><th>a</th></tr><tr><td>b</td></tr></table></div>'
+      + '<div class="layout-legend"><span><span class="layout-chip"></span>x</span></div>');
+    eq(css($(el, 'th'), 'textAlign'), 'left');
+    eq(css($(el, 'th'), 'borderBottomWidth'), '3px');
+    eq(css($(el, '.layout-panel'), 'borderTopWidth'), '3px');
+    eq(css($(el, '.layout-legend'), 'display'), 'flex');
+    eq(css($(el, '.layout-chip'), 'display'), 'inline-block');
   });
 
   // ======================================================================

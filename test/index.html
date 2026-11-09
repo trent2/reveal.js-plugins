@@ -817,6 +817,8 @@
     eq(columns(el)[1], '440px');
     el.style.setProperty('--layout-aside-width', '200px');
     eq(columns(el)[1], '200px');
+    const plain = slide('layout-task-aside', '<h2>T</h2><div class="task">a</div><div class="visual">b</div>');
+    assert(parseFloat(css($(plain, '.visual'), 'fontSize')) > parseFloat(css($(plain, '.task'), 'fontSize')), '.visual keeps the normal type size');
   });
 
   test('layouts: layout-task is a column; the heading keeps its size, the rest is small', () => {
@@ -824,6 +826,15 @@
     eq(css(el, 'flexDirection'), 'column');
     assert(parseFloat(css($(el, '.layout-box'), 'fontSize')) < parseFloat(css($(el, 'h2'), 'fontSize')), 'text smaller than heading');
     eq(css($(el, '.part'), 'fontWeight'), '600');
+  });
+
+  test('layouts: layout-task: a box directly in the slide has the task size, items are 10px apart, no gap below the heading', () => {
+    const el = slide('layout-task', '<h2>T</h2><div class="layout-box">b</div><div id="x">x</div><div id="y">y</div>');
+    const task = parseFloat(css(el, 'fontSize')) * .6 + 'px';
+    eq(css($(el, '.layout-box'), 'fontSize'), task, 'task size (.6em of the slide)');
+    eq([css($(el, '.layout-box'), 'marginTop'), css($(el, '#x'), 'marginTop'), css($(el, '#y'), 'marginTop')], ['0px', '10px', '10px']);
+    const nested = slide('layout-task', '<div><div class="layout-box">b</div></div>');
+    eq(css($(nested, '.layout-box'), 'fontSize'), task, 'a nested box is not scaled twice');
   });
 
   test('layouts: .item has a label column', () => {
@@ -835,7 +846,9 @@
 
   test('layouts: title and section templates use the light text colour', () => {
     eq(css($(slide('layout-title', '<h1>T</h1>'), 'h1'), 'color'), 'rgb(255, 255, 255)');
-    eq(css($(slide('layout-section', '<h1>T</h1><p class="subtitle">s</p>'), 'p'), 'color'), 'rgb(255, 255, 255)');
+    eq(css($(slide('layout-section', '<h1>T</h1><p>s</p>'), 'p'), 'color'), 'rgb(255, 255, 255)');
+    assert(/1 1 1 \/ 0\.8|255, 255, 255, 0\.8/.test(css($(slide('layout-title', '<p class="subtitle">s</p>'), 'p'), 'color')), '.subtitle is 80% white');
+    assert(/1 1 1 \/ 0\.6|255, 255, 255, 0\.6/.test(css($(slide('layout-title', '<p class="hint">s</p>'), 'p'), 'color')), '.hint is 60% white');
   });
 
   test('layouts: boxes use the colour variables, definition box differs', () => {

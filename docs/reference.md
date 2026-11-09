@@ -32,7 +32,7 @@ Eine lauffähige Vorführung aller Vorlagen ist `demo-layouts.html`.
 | `layout-two-columns` | zwei gleich breite Spalten | `h2`, `.col`, `.col` |
 | `layout-side` | Abbildung links, Text rechts | `h2`, `.visual`, `.text` |
 | `layout-task` | Aufgabe, eine Spalte | `h2`, `.layout-box`, `.part`, `.item` |
-| `layout-task-aside` | Aufgabe mit Spalte rechts | `h2`, `.task`, `.aside` |
+| `layout-task-aside` | Aufgabe mit Spalte rechts | `h2`, `.task`, `.aside` oder `.visual` |
 | `layout-summary` | Zusammenfassung mit Tabelle | `h2`, `.layout-panel` |
 
 : Die Vorlagen {#tbl:templates}
@@ -41,7 +41,7 @@ Eine lauffähige Vorführung aller Vorlagen ist `demo-layouts.html`.
 
 ## `layout-title` und `layout-section`
 
-Helle Schrift für dunkle Folien. Der dunkle Hintergrund wird von reveal.js erzeugt und deshalb am
+Helle Schrift für dunkle Folien (`.subtitle` 80 %, `.hint` 60 % deckend). Der dunkle Hintergrund wird von reveal.js erzeugt und deshalb am
 `<section>` angegeben, nicht im CSS.
 
 ```html
@@ -93,7 +93,8 @@ Kästen untereinander stehen.
 </section>
 ```
 
-Die Breite der linken Spalte ist `--layout-visual-width` (Standard 640px).
+Die Breite der linken Spalte ist `--layout-visual-width` (Standard 640px). Ist die Abbildung ein einzelnes
+Element, kann es die Klasse selbst tragen: `<div class="venn visual" …></div>`.
 
 ## `layout-task`
 
@@ -130,7 +131,13 @@ Wie `layout-task`, aber mit einer zweiten Spalte rechts für ein Diagramm, einen
 </section>
 ```
 
-Die Breite der rechten Spalte ist `--layout-aside-width` (Standard 440px).
+Die rechte Spalte ist entweder `.aside` (kleine Schrift wie `.task`, mehrere Elemente untereinander) oder
+`.visual` (normale Schrift, z. B. für eine Vierfeldertafel). Ihre Breite ist `--layout-aside-width`
+(Standard 440px).
+
+```html
+<div class="visual"><div class="fourfield" data-values="…"></div></div>
+```
 
 ## `layout-summary`
 

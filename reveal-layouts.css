@@ -18,7 +18,8 @@
  *   layout-two-columns    two equal columns  h2, .col, .col
  *   layout-side           visual left, text right    h2, .visual, .text
  *   layout-task           task slide, one column     h2, .layout-box, .part, .item
- *   layout-task-aside     task slide with a column on the right   h2, .task, .aside
+ *   layout-task-aside     task slide with a column on the right   h2, .task, .aside or .visual
+ *                         (.aside: small type like .task; .visual: normal type, e.g. for a table)
  *   layout-summary        heading + panel with table   h2, .layout-panel
  *
  * Building blocks (usable anywhere)
@@ -146,12 +147,12 @@
 .reveal .slides section.layout-title .subtitle,
 .reveal .slides section.layout-section .subtitle {
   font-size: .8em;
-  opacity: .8;
+  color: color-mix(in srgb, var(--layout-on-dark) 80%, transparent);
 }
 
 .reveal .slides section.layout-title .hint {
   font-size: .65em;
-  opacity: .6;
+  color: color-mix(in srgb, var(--layout-on-dark) 60%, transparent);
 }
 
 .reveal .slides section.layout-section h1 {
@@ -183,8 +184,12 @@
 .reveal .slides section.layout-task {
   display: flex !important;
   flex-direction: column;
-  gap: 10px;
   text-align: left;
+}
+
+/* 10px between the items, none between the heading and the first item */
+.reveal .slides section.layout-task > :not(h1):not(h2):not(h3) ~ :not(h1):not(h2):not(h3) {
+  margin-top: 10px;
 }
 
 /* hidden by reveal.js (outside the view distance): keep it hidden */
@@ -255,7 +260,8 @@
   gap: 10px;
 }
 
-.reveal .slides section.layout-task .layout-box,
+/* a box inside a sized container keeps that size (a box directly in layout-task is sized itself) */
+.reveal .slides section.layout-task > * .layout-box,
 .reveal .slides section.layout-task-aside .layout-box {
   font-size: 1em;
 }

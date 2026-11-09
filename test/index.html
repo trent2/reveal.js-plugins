@@ -69,16 +69,20 @@
     plugin.init({ getConfig: () => ({ probability: config }), getRevealElement: () => root });
     return plugin;
   }
-  function uncoverOn(root, config = {}) {
-    const bindings = [];
+  function uncoverOn(root, config = {}, currentSlide = root) {
+    const bindings = [], shortcuts = [];
     const plugin = RevealUncover();
     plugin.init({
       getConfig: () => ({ uncover: config }),
       getRevealElement: () => root,
-      addKeyBinding: (binding, callback) => bindings.push({ binding, callback })
+      getCurrentSlide: () => currentSlide,
+      addKeyBinding: (binding, callback) => bindings.push({ binding, callback }),
+      registerKeyboardShortcut: (keys, description) => shortcuts.push({ keys, description })
     });
-    return { plugin, bindings };
+    return { plugin, bindings, shortcuts };
   }
+  const shiftKey = (key, target = document, extra = {}) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey: true, bubbles: true, ...extra }));
   // Build one diagram from markup and return its host element
   function build(html, config) {
     const root = container(html);
@@ -178,24 +182,59 @@
     assert(!el.classList.contains('covered'));
   });
 
-  test('uncover: default key binding V covers everything', () => {
-    const root = container('<span class="uncover">a</span>');
-    const { plugin, bindings } = uncoverOn(root);
-    eq(bindings.length, 1);
-    eq([bindings[0].binding.keyCode, bindings[0].binding.key], [86, 'V']);
-    eq(bindings[0].binding.description, 'Cover all solutions');
-    plugin.uncover(root);
+  const slides = '<div id="s1"><span class="uncover">a</span></div><div id="s2"><span class="uncover">b</span></div>';
+  const coveredIds = root => $$(root, '.covered').map(el => el.parentNode.id);
+
+  test('uncover: default bindings U and V act on the current slide', () => {
+    const root = container(slides);
+    const { bindings } = uncoverOn(root, {}, $(root, '#s1'));
+    eq(bindings.map(b => [b.binding.keyCode, b.binding.key]), [[85, 'U'], [86, 'V']]);
+    eq(bindings.map(b => b.binding.description), ['Uncover all solutions on this slide', 'Cover all solutions on this slide']);
     bindings[0].callback();
-    eq($$(root, '.covered').length, 1);
+    eq(coveredIds(root), ['s2'], 'U uncovers slide 1 only');
+    bindings[1].callback();
+    eq(coveredIds(root), ['s1', 's2'], 'V covers slide 1 again');
   });
 
-  test('uncover: configured key and description', () => {
-    const { bindings } = uncoverOn(container(''), { key: 'x', keyDescription: 'Alle verdecken' });
-    eq([bindings[0].binding.keyCode, bindings[0].binding.key, bindings[0].binding.description], [88, 'X', 'Alle verdecken']);
+  test('uncover: Shift+U and Shift+V act on the whole presentation', () => {
+    const root = container(slides);
+    const { shortcuts } = uncoverOn(root, {}, $(root, '#s1'));
+    eq(shortcuts.map(s => s.keys), ['Shift + U', 'Shift + V']);
+    shiftKey('U');
+    eq(coveredIds(root), [], 'everything uncovered');
+    shiftKey('v');
+    eq(coveredIds(root), ['s1', 's2'], 'everything covered');
   });
 
-  test('uncover: key false registers no key binding', () => {
-    eq(uncoverOn(container(''), { key: false }).bindings.length, 0);
+  test('uncover: Shift keys ignore other modifiers and text fields', () => {
+    const root = container(slides + '<input id="in">');
+    uncoverOn(root);
+    shiftKey('U', document, { ctrlKey: true });
+    shiftKey('U', $(root, '#in'));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'U', bubbles: true }));   // no Shift
+    eq($$(root, '.covered').length, 2);
+  });
+
+  test('uncover: configured keys and descriptions', () => {
+    const root = container(slides);
+    const { bindings, shortcuts } = uncoverOn(root, {
+      keys: { uncoverSlide: 'x', coverAll: 'Shift+y' },
+      descriptions: { uncoverSlide: 'Aufdecken', coverAll: 'Alle verdecken' }
+    });
+    eq(bindings.filter(b => b.binding.key === 'X').map(b => [b.binding.keyCode, b.binding.description]), [[88, 'Aufdecken']]);
+    eq(shortcuts.filter(s => s.keys === 'Shift + Y').map(s => s.description), ['Alle verdecken']);
+    shiftKey('U');
+    eq($$(root, '.covered').length, 0, 'default Shift+U still works');
+  });
+
+  test('uncover: key false registers no binding', () => {
+    const { bindings, shortcuts } = uncoverOn(container(''), {
+      keys: { uncoverSlide: false, uncoverAll: false, coverSlide: false, coverAll: false } });
+    eq([bindings.length, shortcuts.length], [0, 0]);
+    const root = container(slides);
+    uncoverOn(root, { keys: { uncoverAll: false } });
+    shiftKey('U');
+    eq($$(root, '.covered').length, 2, 'disabled key does nothing');
   });
 
   test('uncover: listener is bound to the reveal element only', () => {
@@ -640,7 +679,7 @@
   const deck = new Reveal(document.getElementById('integration'), {
     plugins: [RevealUncover, RevealProbability],
     probability: { labels: { venn: 'Mengendiagramm' } },
-    uncover: { keyDescription: 'Alle verdecken' }
+    uncover: { descriptions: { coverSlide: 'Lösungen dieser Folie verdecken' } }
   });
   deck.initialize().then(async () => {
     await testAsync('integration: plugins are registered', () => {
@@ -656,10 +695,23 @@
       a.click();
       assert(!a.classList.contains('covered') && b.classList.contains('covered'));
     });
-    await testAsync('integration: key V covers everything again', () => {
+    await testAsync('integration: keys U/V (slide) and Shift+U/Shift+V (all) work through reveal.js', () => {
+      const covered = () => document.querySelectorAll('#integration .uncover.covered').length;
+      const press = (key, keyCode, shiftKey = false) =>
+        document.dispatchEvent(new KeyboardEvent('keydown', { key, keyCode, which: keyCode, shiftKey, bubbles: true }));
       deck.getPlugin('uncover').uncover();
-      document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 86, which: 86, key: 'v', bubbles: true }));
-      eq(document.querySelectorAll('#integration .uncover.covered').length, 2);
+      press('v', 86);
+      eq(covered(), 2, 'V covers the current slide');
+      press('u', 85);
+      eq(covered(), 0, 'U uncovers it');
+      press('V', 86, true);
+      eq(covered(), 2, 'Shift+V covers all');
+      press('U', 85, true);
+      eq(covered(), 0, 'Shift+U uncovers all');
+      deck.toggleHelp(true);
+      const help = document.querySelector('.r-overlay-help-content')?.textContent ?? '';
+      deck.toggleHelp(false);
+      assert(help.includes('Shift + U') && help.includes('Lösungen dieser Folie verdecken'), 'listed in the keyboard help');
     });
     await testAsync('integration: no unexpected warnings', () => { eq(warnings, []); });
     finish();

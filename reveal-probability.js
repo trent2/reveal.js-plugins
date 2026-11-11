@@ -107,8 +107,11 @@
  *   The value gets the class "uncover" (table: a <span class="uncover block"> inside the cell;
  *   SVG: a <g class="uncover"> around the text or fraction). data-uncover="all" on the diagram
  *   covers all of its values (in the table also headings only with an explicit "?").
- *   A "!" in front of a table cell adds the class "highlight" to the cell (red frame); it can be
- *   combined with "?" ("?!0,23"). "!" has no effect in the tree and the Venn diagram.
+ *   A "!" in front of a table cell adds the class "highlight" to the cell (red frame); in the
+ *   tree it draws a red frame (rect.tree-highlight) around the probability. It can be combined
+ *   with "?" ("?!0,23"). "!" has no effect in the Venn diagram.
+ *   A "~" in front of a value leaves the entry empty (tree, table, Venn values); the rest of
+ *   the entry is ignored. "~" wins over "?", "!" still works ("!~" frames an empty table cell).
  *
  *   The plugin does not depend on reveal-uncover. It only sets the class and, if the plugin is
  *   loaded, asks it to cover the new elements (Reveal.getPlugin('uncover').cover(diagram)).
@@ -124,10 +127,12 @@
   const splitPlain = (text, separator) => text.split(separator).map(s => s.trim()).filter(Boolean);
 
   // Flags in front of a value: "?" = covered until clicked (class "uncover", see reveal-uncover),
-  // "!" = highlighted. data-uncover="all" on the diagram covers every value.
+  // "!" = highlighted, "~" = the entry stays empty. data-uncover="all" on the diagram covers
+  // every value.
   function parseFlags(text, coverAll = false) {
-    const [, flags, rest] = /^([?!]*)\s*([\s\S]*)$/.exec(text);
-    return { text: rest, cover: coverAll || flags.includes('?'), highlight: flags.includes('!') };
+    const [, flags, rest] = /^([?!~]*)\s*([\s\S]*)$/.exec(text);
+    const empty = flags.includes('~');
+    return { text: empty ? '' : rest, empty, cover: !empty && (coverAll || flags.includes('?')), highlight: flags.includes('!') };
   }
 
   // Split at a separator but not inside $…$; a backslash keeps the next character from counting.
@@ -314,13 +319,17 @@
 
     // a/b as a stacked fraction around (x, y), other text on one line
     const label = (x, y, value) => {
-      const { text: p, cover } = parseFlags(value, host.dataset.uncover === 'all');
+      const { text: p, empty, cover, highlight } = parseFlags(value, host.dataset.uncover === 'all');
+      if (empty) return '';
       const [numerator, denominator] = p.split('/');
-      const svg = denominator === undefined
+      const frame = !highlight ? '' : denominator === undefined
+        ? `<rect x="${x - p.length * 5.5 - 6}" y="${y - 14}" width="${p.length * 11 + 12}" height="28" rx="4" class="tree-highlight"/>`
+        : `<rect x="${x - 22}" y="${y - 25}" width="44" height="50" rx="4" class="tree-highlight"/>`;
+      const svg = frame + (denominator === undefined
         ? `<text x="${x}" y="${y}" dy=".35em" class="tree-probability">${esc(p)}</text>`
         : `<text x="${x}" y="${y - 5}" class="tree-probability">${esc(numerator)}</text>`
         + `<line x1="${x - 11}" y1="${y}" x2="${x + 11}" y2="${y}" class="tree-fraction-bar"/>`
-        + `<text x="${x}" y="${y + 18}" class="tree-probability">${esc(denominator)}</text>`;
+        + `<text x="${x}" y="${y + 18}" class="tree-probability">${esc(denominator)}</text>`);
       return cover ? `<g class="uncover">${svg}</g>` : svg;
     };
 

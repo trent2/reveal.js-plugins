@@ -743,6 +743,29 @@
     eq($$(host, 'th .uncover').length, 0);
   });
 
+  test('empty entries: "~" leaves tree labels, path values and table cells empty', () => {
+    const host = tree('data-probabilities="~|2 ; ~skipped|4 ; 5|?~6" data-paths="~|1/4|~|0,2"');
+    eq(labelsOf(host, '.tree-probability'), ['2', '4', '5', '1', '4', '0,2']);
+    eq($$(host, 'g.uncover').length, 0, '"~" wins over "?"');
+    eq(warnings, []);
+    const table = fourfield('data-columns="a|b" data-rows="c|d" data-values="1|~2|9 ; ?~3|!~4|8 ; 5|6|7"');
+    const cells = $$(table, 'td');
+    eq(cells.map(td => td.textContent), ['1', '', '9', '', '', '8', '5', '6', '7']);
+    eq($$(table, '.uncover').length, 0);
+    eq(cells.filter(td => td.classList.contains('highlight')).length, 1, '"!~" frames the empty cell');
+  });
+
+  test('highlighted tree values: "!" draws a frame around the probability', () => {
+    const host = tree('data-probabilities="!1/6|5/6 ; !0,3|0,7 ; 4/5|?!1/5"');
+    eq($$(host, 'rect.tree-highlight').length, 3);
+    const text = $$(host, '.tree-probability').find(el => el.textContent === '0,3');
+    const frame = $$(host, 'rect.tree-highlight')[1];
+    assert(Number(frame.getAttribute('x')) < Number(text.getAttribute('x')) &&
+           Number(frame.getAttribute('x')) + Number(frame.getAttribute('width')) > Number(text.getAttribute('x')), 'frame around the text');
+    eq($$(host, 'g.uncover > rect.tree-highlight').length, 1, 'the frame is covered together with its value');
+    eq($$(tree('data-probabilities="1|2 ; 3|4 ; 5|6"'), 'rect.tree-highlight').length, 0);
+  });
+
   test('highlighted cells: "!" adds the class, combined with "?" and without changing the text', () => {
     const host = fourfield('data-columns="a|b" data-rows="c|d" data-values="!1|?!2|3 ; 4|5|6 ; 7|8|9"');
     const cells = $$(host, 'td');

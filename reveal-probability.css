@@ -20,7 +20,8 @@
  *   --probability-table-border      borders of the four-field table
  *   --probability-table-head        background of the headings of the four-field table
  *   --probability-table-inner       background of the four inner fields
- *   --probability-table-highlight   frame of a highlighted table cell ("!" before the value)
+ *   --probability-table-highlight   frame of a highlighted table cell or tree probability
+ *                                   ("!" before the value)
  *
  * The SVG text inherits the font of the slides.
  */
@@ -151,6 +152,11 @@
   font-size: 19px;
   text-anchor: middle;
   fill: var(--probability-text);
+}
+.reveal .tree-highlight {
+  fill: none;
+  stroke: var(--probability-table-highlight);
+  stroke-width: 3;
 }
 .reveal .tree-fraction-bar {
   stroke: var(--probability-text);

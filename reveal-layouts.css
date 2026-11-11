@@ -256,7 +256,7 @@
   gap: 12px;
 }
 
-.reveal .slides section.layout-side .layout-box {
+.reveal .slides section.layout-side .layout-box:not(.full) {
   font-size: 1em;
 }
 
@@ -279,9 +279,10 @@
   gap: 10px;
 }
 
-/* a box inside a sized container keeps that size (a box directly in layout-task is sized itself) */
+/* a box inside a sized container keeps that size (a box directly in layout-task is sized itself;
+   a box that is .full itself is sized by the .full rule) */
 .reveal .slides section.layout-task > * .layout-box,
-.reveal .slides section.layout-task-aside .layout-box {
+.reveal .slides section.layout-task-aside .layout-box:not(.full) {
   font-size: 1em;
 }
 

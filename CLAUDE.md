@@ -84,7 +84,7 @@ test/run.sh     # Exit-Code 0 = alles in Ordnung
 
 `test/run.sh` führt vier Prüfungen aus (`test/run.sh --update-golden` erzeugt zusätzlich den Golden Master der Präsentation neu):
 
-1. **`test/index.html`** (derzeit 117 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
+1. **`test/index.html`** (derzeit 118 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
    - *uncover:* Startzustand, Klick (auch auf Kindelemente und SVG), API `cover`/`uncover`/`toggle` mit Bereich, später eingefügte Elemente, Tasten `U`/`V`/`Shift+U`/`Shift+V` (Folie gegen alles, andere Modifikatoren, Eingabefelder, Konfiguration, `false`, Hilfetext), Listener nur am Reveal-Element, CSS (Blur).
    - *Aufdeckbare/hervorgehobene Werte:* `?` und `!` in Tafel, Baum und Venn, `data-uncover="all"`, Escaping, mit und ohne `reveal-uncover`, späteres `render(scope)`, CSS.
    - *Venn:* alle sieben Modi (Füllschichten, hervorgehobene Elemente, clipPath-IDs eindeutig), Werte, Namen, `mini`, Sets (Namen, Elemente, feste Positionen, Vorrang der Attribute, Teilpositionen, unbekanntes Set), automatische Platzierung (liegt im Bereich, Randabstand, keine Überlappung, Abstand zu Beschriftungen, zu viele Elemente), Escaping, unbekannter Modus, `aria-label`.

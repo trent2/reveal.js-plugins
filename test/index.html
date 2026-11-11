@@ -896,6 +896,15 @@
     }
   });
 
+  test('layouts: a layout-box that is .full itself gets the type size of the template, like a box inside .full', () => {
+    for (const [template, columnsHtml] of [['layout-side', '<div class="visual">v</div><div class="text">t</div>'],
+                                           ['layout-task-aside', '<div class="task">a</div><div class="aside">b</div>']]) {
+      const el = slide(template, `<h2>T</h2><div class="full layout-box">x</div><div class="full"><div class="layout-box">y</div></div>${columnsHtml}`);
+      const [own, wrapped] = [$(el, '.full.layout-box'), $(el, '.full > .layout-box')];
+      eq(css(own, 'fontSize'), css(wrapped, 'fontSize'), template);
+    }
+  });
+
   test('layouts: layout-task-aside has a right column of --layout-aside-width', () => {
     const el = slide('layout-task-aside', '<h2>T</h2><div class="task">a</div><div class="aside">b</div>');
     eq(columns(el).length, 2);

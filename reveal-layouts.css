@@ -22,6 +22,10 @@
  *                         (.aside: small type like .task; .visual: normal type, e.g. for a table)
  *   layout-summary        heading + panel with table   h2, .layout-panel
  *
+ * .full (class on a child of two-column templates: two-columns, side, task-aside)
+ *   spans both columns, e.g. an introduction above or a remark below the columns; the type size
+ *   is that of the text of the template. Place it in the order in which it should appear.
+ *
  * Building blocks (usable anywhere)
  *   layout-box            framed text box; with .box-title for a heading line
  *   layout-box-definition box in the second colour (definitions)
@@ -216,6 +220,21 @@
 .reveal .slides section.layout-summary > h1,
 .reveal .slides section.layout-summary > h2 {
   text-align: center;
+}
+
+/* .full: a child that spans all columns (like the heading); type size as in the template */
+.reveal .slides section.layout-two-columns > .full,
+.reveal .slides section.layout-side > .full,
+.reveal .slides section.layout-task-aside > .full {
+  grid-column: 1 / -1;
+}
+
+.reveal .slides section.layout-side > .full {
+  font-size: var(--layout-text-size);
+}
+
+.reveal .slides section.layout-task-aside > .full {
+  font-size: var(--layout-task-size);
 }
 
 /* layout-two-columns */

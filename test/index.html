@@ -868,6 +868,26 @@
     eq(css($(el, '.text'), 'display'), 'flex');
   });
 
+  test('layouts: .full spans all columns, in the type size of the template', () => {
+    const cases = [
+      ['layout-two-columns', '<div class="col">a</div><div class="col">b</div>', null],
+      ['layout-side', '<div class="visual">v</div><div class="text">t</div>', '.text'],
+      ['layout-task-aside', '<div class="task">a</div><div class="aside">b</div>', '.task']
+    ];
+    for (const [template, columnsHtml, reference] of cases) {
+      const el = slide(template, `<h2>T</h2><div class="full">intro</div>${columnsHtml}<div class="full">outro</div>`);
+      const [intro, outro] = $$(el, '.full');
+      for (const f of [intro, outro])
+        eq(css(f, 'gridColumnStart') + '/' + css(f, 'gridColumnEnd'), '1/-1', template);
+      const width = el.getBoundingClientRect().width;
+      assert(Math.abs(intro.getBoundingClientRect().width - width) < 2, `${template}: full width`);
+      const first = $(el, 'div:not(.full)').getBoundingClientRect();
+      assert(intro.getBoundingClientRect().bottom <= first.top + 1, `${template}: intro above the columns`);
+      assert(outro.getBoundingClientRect().top >= first.bottom - 1, `${template}: outro below the columns`);
+      if (reference) eq(css(intro, 'fontSize'), css($(el, reference), 'fontSize'), `${template}: type size`);
+    }
+  });
+
   test('layouts: layout-task-aside has a right column of --layout-aside-width', () => {
     const el = slide('layout-task-aside', '<h2>T</h2><div class="task">a</div><div class="aside">b</div>');
     eq(columns(el).length, 2);

@@ -157,6 +157,22 @@ vorgegeben; die Tabelle füllt die Breite.
 </section>
 ```
 
+## `.full`: Inhalt über alle Spalten
+
+In den zweispaltigen Vorlagen (`layout-two-columns`, `layout-side`, `layout-task-aside`) belegt ein Kind mit der Klasse `full`
+beide Spalten, wie die Überschrift. So lassen sich ein einleitender Satz oder eine Bemerkung unter den Spalten unterbringen.
+Die Schrift ist die des Textes der Vorlage (`--layout-text-size` bzw. `--layout-task-size`); das Kind steht dort, wo es im
+Quelltext steht.
+
+```html
+<section class="layout-side">
+  <h2>Überschrift</h2>
+  <div class="full"><p>Satz über beiden Spalten.</p></div>
+  <div class="visual">…</div>
+  <div class="text">…</div>
+</section>
+```
+
 # Bausteine
 
 Bausteine kann man in jeder Vorlage und auch ohne Vorlage verwenden.

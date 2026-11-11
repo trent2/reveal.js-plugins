@@ -51,6 +51,7 @@ Die API jedes Plugins (Attribute, Konfiguration, Methoden) steht im Kommentar am
 <div class="venn mini" data-mode="complement"></div>   <!-- nur Kreise und Färbung, für Übersichten -->
 
 <div class="tree" data-names="A,B" data-probabilities="1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"></div>
+<!-- optional: data-complement-names="…,…" (eigene Namen statt Überstrich), data-paths="a|b|c|d" (Pfadwahrscheinlichkeiten unter den Blättern) -->
 
 <div class="fourfield" data-corner="Merkmal" data-total-label="Summe"
      data-columns="$K$|$\overline{K}$" data-rows="$T$|$\overline{T}$"
@@ -83,7 +84,7 @@ test/run.sh     # Exit-Code 0 = alles in Ordnung
 
 `test/run.sh` führt vier Prüfungen aus (`test/run.sh --update-golden` erzeugt zusätzlich den Golden Master der Präsentation neu):
 
-1. **`test/index.html`** (derzeit 108 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
+1. **`test/index.html`** (derzeit 113 Tests, eigene Mini-Harness): Unit-Tests gegen ein Fake-Deck (`getConfig`, `getRevealElement`, `addKeyBinding`) und ein Integrationstest mit echtem reveal.js.
    - *uncover:* Startzustand, Klick (auch auf Kindelemente und SVG), API `cover`/`uncover`/`toggle` mit Bereich, später eingefügte Elemente, Tasten `U`/`V`/`Shift+U`/`Shift+V` (Folie gegen alles, andere Modifikatoren, Eingabefelder, Konfiguration, `false`, Hilfetext), Listener nur am Reveal-Element, CSS (Blur).
    - *Aufdeckbare/hervorgehobene Werte:* `?` und `!` in Tafel, Baum und Venn, `data-uncover="all"`, Escaping, mit und ohne `reveal-uncover`, späteres `render(scope)`, CSS.
    - *Venn:* alle sieben Modi (Füllschichten, hervorgehobene Elemente, clipPath-IDs eindeutig), Werte, Namen, `mini`, Sets (Namen, Elemente, feste Positionen, Vorrang der Attribute, Teilpositionen, unbekanntes Set), automatische Platzierung (liegt im Bereich, Randabstand, keine Überlappung, Abstand zu Beschriftungen, zu viele Elemente), Escaping, unbekannter Modus, `aria-label`.

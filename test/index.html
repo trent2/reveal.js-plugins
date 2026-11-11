@@ -464,6 +464,40 @@
     eq(warnings, []);
   });
 
+  test('tree: own names for the complements replace the overlines', () => {
+    const host = tree('data-names="♂,D" data-complement-names="♀,R" data-probabilities="1|2 ; 3|4 ; 5|6"');
+    eq(labelsOf(host, '.tree-node-label'), ['♂', '♀', 'D', 'R', 'D', 'R']);
+    eq($$(host, '.tree-overline').length, 0);
+    eq(warnings, []);
+  });
+
+  test('tree: an empty complement name keeps the overline for that stage', () => {
+    const host = tree('data-names="♂,D" data-complement-names=",R" data-probabilities="1|2 ; 3|4 ; 5|6"');
+    eq(labelsOf(host, '.tree-node-label'), ['♂', '♂', 'D', 'R', 'D', 'R']);
+    eq($$(host, '.tree-overline').length, 1, 'only the stage 1 complement');
+  });
+
+  test('tree: path probabilities below the end nodes', () => {
+    const host = tree('data-probabilities="1|2 ; 3|4 ; 5|6" data-paths="0,1|1/4|?0,3|0,2"');
+    eq(labelsOf(host, '.tree-probability').slice(-5), ['0,1', '1', '4', '0,3', '0,2']);
+    eq($$(host, '.tree-fraction-bar').length, 1);
+    eq($$(host, 'g.uncover').length, 1);
+    const first = $$(host, '.tree-probability')[6];
+    assert(Number(first.getAttribute('y')) > 215 + 18, 'below the node');
+    eq(Number(first.getAttribute('x')), Number($$(host, '.tree-node.tree-node-2')[0].getAttribute('cx')));
+    eq(warnings, []);
+  });
+
+  test('tree: without data-paths the drawing keeps its height', () => {
+    eq($(tree(TREE), 'svg').getAttribute('viewBox'), '0 0 460 245');
+  });
+
+  test('tree: data-paths needs four values', () => {
+    const host = tree('data-probabilities="1|2 ; 3|4 ; 5|6" data-paths="1|2|3"');
+    eq($$(host, 'svg').length, 0);
+    eq(warnings.length, 1);
+  });
+
   test('tree: overlines sit on the complements only', () => {
     const host = tree(TREE);
     const labels = $$(host, '.tree-node-label').map(el => [Number(el.getAttribute('x')), Number(el.getAttribute('y'))]);

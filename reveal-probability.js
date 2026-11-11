@@ -44,8 +44,14 @@
  *                     data-probabilities="1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"></div>
  *
  *   Two stages: event A and its complement, then event B and its complement after each.
- *   Complements get an overline. Names and probabilities are plain text (no LaTeX).
+ *   Names and probabilities are plain text (no LaTeX).
  *   data-names            names of the events of stage 1 and stage 2 (default: A,B)
+ *   data-complement-names names of the complements of stage 1 and stage 2, e.g. "♀,R" for
+ *                         data-names="♂,D". Default: the complement gets the name of its event
+ *                         with an overline. An empty entry (",R") keeps the overline for that stage.
+ *   data-paths            optional: the four path probabilities, written below the end nodes
+ *                         from left to right, e.g. "0,240|0,230|0,323|0,207" (same notation and
+ *                         "?" marks as data-probabilities).
  *   data-probabilities    three groups separated by ";" with two probabilities each, separated
  *                         by "|":  A | not A  ;  B | not B after A  ;  B | not B after not A.
  *                         "a/b" is drawn as a stacked fraction, other text (e.g. 0,3) as it is.
@@ -281,15 +287,24 @@
 
   function drawTree(host, config) {
     const [name1, name2] = (host.dataset.names || 'A,B').split(',').map(s => s.trim());
+    const [complement1, complement2] = (host.dataset.complementNames || '').split(',').map(s => s.trim());
     const stages = splitPlain(host.dataset.probabilities || '', ';').map(part => splitPlain(part, '|'));
     if (stages.length !== 3 || stages.some(p => p.length !== 2)) {
       warn('data-probabilities needs three groups with two probabilities each, e.g. "1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"', host);
       return;
     }
+    const paths = host.dataset.paths === undefined ? null : splitPlain(host.dataset.paths, '|');
+    if (paths && paths.length !== 4) {
+      warn('data-paths needs four path probabilities, e.g. "1/18|2/18|1/18|14/18"', host);
+      return;
+    }
     const { root, stage1, stage2 } = TREE;
+    // a complement with its own name gets no overline
+    const node = (x, y, name, own, complement, level) =>
+      ({ x, y, level, name: complement && own ? own : name, complement: complement && !own });
     const nodes = [
-      ...stage1.map(([x, y], i) => ({ x, y, name: name1, complement: i === 1, level: 1 })),
-      ...stage2.flat().map(([x, y], i) => ({ x, y, name: name2, complement: i % 2 === 1, level: 2 }))
+      ...stage1.map(([x, y], i) => node(x, y, name1, complement1, i === 1, 1)),
+      ...stage2.flat().map(([x, y], i) => node(x, y, name2, complement2, i % 2 === 1, 2))
     ];
     const branches = [                                                  // from, to, probability
       [root, stage1[0], stages[0][0]], [root, stage1[1], stages[0][1]],
@@ -309,7 +324,7 @@
       return cover ? `<g class="uncover">${svg}</g>` : svg;
     };
 
-    let svg = `<svg viewBox="0 0 460 245" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(config.labels?.tree ?? 'Tree diagram')}">`;
+    let svg = `<svg viewBox="0 0 460 ${paths ? 285 : 245}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(config.labels?.tree ?? 'Tree diagram')}">`;
     for (const [from, to] of branches)
       svg += `<line x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" class="tree-branch"/>`;
     for (const { x, y, name, complement, level } of nodes) {
@@ -321,6 +336,7 @@
       const toTheLeft = to[0] < from[0];                                // label sits beside its branch, a bit above the middle
       svg += label((from[0] + to[0]) / 2 + (toTheLeft ? -27 : 27), (from[1] + to[1]) / 2 - 8, p);
     }
+    if (paths) stage2.flat().forEach(([x, y], i) => { svg += label(x, y + 36, paths[i]); });
     host.innerHTML = svg + '</svg>';
   }
 

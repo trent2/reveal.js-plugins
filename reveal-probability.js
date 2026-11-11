@@ -44,7 +44,8 @@
  *                     data-probabilities="1/6|5/6 ; 1/3|2/3 ; 4/5|1/5"></div>
  *
  *   Two stages: event A and its complement, then event B and its complement after each.
- *   Names and probabilities are plain text (no LaTeX).
+ *   Names and probabilities are plain text (no LaTeX); only "_x" / "_{xy}" is set as a subscript,
+ *   e.g. "P_A(B)" or "P_{AB}".
  *   data-names            names of the events of stage 1 and stage 2 (default: A,B)
  *   data-complement-names names of the complements of stage 1 and stage 2, e.g. "♀,R" for
  *                         data-names="♂,D". Default: the complement gets the name of its event
@@ -124,6 +125,9 @@
 
   const warn = (...args) => console.warn('[reveal-probability]', ...args);
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // Tree labels: "_x" or "_{xy}" is set as a subscript, e.g. "P_A(B)"; everything else is plain text.
+  const withSubscripts = s => esc(s).replace(/_\{([^}]*)\}|_([^\s{])/g,
+    (_, braced, single) => `<tspan class="tree-subscript">${braced ?? single}</tspan>`);
   const splitPlain = (text, separator) => text.split(separator).map(s => s.trim()).filter(Boolean);
 
   // Flags in front of a value: "?" = covered until clicked (class "uncover", see reveal-uncover),
@@ -326,10 +330,10 @@
         ? `<rect x="${x - p.length * 5.5 - 6}" y="${y - 14}" width="${p.length * 11 + 12}" height="28" rx="4" class="tree-highlight"/>`
         : `<rect x="${x - 22}" y="${y - 25}" width="44" height="50" rx="4" class="tree-highlight"/>`;
       const svg = frame + (denominator === undefined
-        ? `<text x="${x}" y="${y}" dy=".35em" class="tree-probability">${esc(p)}</text>`
-        : `<text x="${x}" y="${y - 5}" class="tree-probability">${esc(numerator)}</text>`
+        ? `<text x="${x}" y="${y}" dy=".35em" class="tree-probability">${withSubscripts(p)}</text>`
+        : `<text x="${x}" y="${y - 5}" class="tree-probability">${withSubscripts(numerator)}</text>`
         + `<line x1="${x - 11}" y1="${y}" x2="${x + 11}" y2="${y}" class="tree-fraction-bar"/>`
-        + `<text x="${x}" y="${y + 18}" class="tree-probability">${esc(denominator)}</text>`);
+        + `<text x="${x}" y="${y + 18}" class="tree-probability">${withSubscripts(denominator)}</text>`);
       return cover ? `<g class="uncover">${svg}</g>` : svg;
     };
 
@@ -338,7 +342,7 @@
       svg += `<line x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" class="tree-branch"/>`;
     for (const { x, y, name, complement, level } of nodes) {
       svg += `<circle cx="${x}" cy="${y}" r="18" class="tree-node tree-node-${level}"/>`
-           + `<text x="${x}" y="${y}" dy=".35em" class="tree-node-label tree-node-${level}">${esc(name)}</text>`
+           + `<text x="${x}" y="${y}" dy=".35em" class="tree-node-label tree-node-${level}">${withSubscripts(name)}</text>`
            + (complement ? `<line x1="${x - 7}" y1="${y - 12}" x2="${x + 7}" y2="${y - 12}" class="tree-overline tree-node-${level}"/>` : '');
     }
     for (const [from, to, p] of branches) {

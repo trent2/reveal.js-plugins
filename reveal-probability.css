@@ -158,6 +158,10 @@
   stroke: var(--probability-table-highlight);
   stroke-width: 3;
 }
+.reveal .tree-subscript {
+  baseline-shift: sub;
+  font-size: .7em;
+}
 .reveal .tree-fraction-bar {
   stroke: var(--probability-text);
   stroke-width: 1.6;

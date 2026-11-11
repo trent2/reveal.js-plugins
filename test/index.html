@@ -498,6 +498,14 @@
     eq(warnings.length, 1);
   });
 
+  test('tree: "_x" and "_{xy}" become subscripts, escaping is kept', () => {
+    const host = tree('data-names="A,B" data-probabilities="P_A(B)|P_{AB}(C) ; &lt;_x&gt;|2 ; 3|4" data-paths="a_b|1|2|3"');
+    eq($$(host, 'tspan.tree-subscript').map(text), ['A', 'AB', 'x', 'b']);
+    eq(labelsOf(host, '.tree-probability')[0], 'PA(B)', 'text content without the underscore');
+    eq($$(host, 'b').length, 0);
+    eq(warnings, []);
+  });
+
   test('tree: overlines sit on the complements only', () => {
     const host = tree(TREE);
     const labels = $$(host, '.tree-node-label').map(el => [Number(el.getAttribute('x')), Number(el.getAttribute('y'))]);
